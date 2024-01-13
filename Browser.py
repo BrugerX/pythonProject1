@@ -1,6 +1,5 @@
 import requests
 import bs4
-import lxml
 
 """
 
@@ -27,3 +26,18 @@ class Browser:
 
         return bs4.BeautifulSoup(request.content,parser)
 
+
+class BidApi:
+
+    def __init__(self):
+        pass
+
+    @staticmethod
+    def getBids(LID):
+        bidApiCallUrl = fr"https://www.catawiki.com/buyer/api/v3/lots/{LID}/bids?currency_code=EUR&per_page=200"
+        return Browser.load_bs4(bidApiCallUrl)
+
+    @staticmethod
+    def getLatestBid(LID):
+        latestBidApiCallUrl = fr"https://www.catawiki.com/buyer/api/v3/bidding/lots?ids={LID}"
+        return Browser.load_bs4(latestBidApiCallUrl)
