@@ -1,6 +1,7 @@
 import json
+import time
 from abc import ABC,abstractmethod
-from Browser import Browser,BidApi
+from Browser import Browser,BidApi,ShippingApi
 
 
 class LotData(ABC):
@@ -17,7 +18,7 @@ class LotData(ABC):
     
     """
     @abstractmethod
-    def createDataDict(self):
+    def getDataDict(self):
         return dict
 
     def __repr__(self):
@@ -25,6 +26,7 @@ class LotData(ABC):
 
 
 
+#TODO: BidData only contains a single row, it seems...?
 class BidData(LotData):
 
     def __init__(self, LID: str, bidDict, finalBidsDict):
@@ -47,7 +49,6 @@ class BidData(LotData):
                     currencies += [currency]
                 except:
                     pass
-
 
         else:
             isLatestBid = False
@@ -92,22 +93,92 @@ class BidData(LotData):
         self.dataDict["timeStamp"] = timeStamp
         self.dataDict["explanationType"] = explanationType
 
-    def createDataDict(self):
+    def getDataDict(self):
         return self.dataDict
 
+class ShippingData:
 
+    def __init__(self,LID,waitBetweenCallsSeconds = 2, defaultCurrencyCode = "USD"):
+        self.LID = LID
+        self.waitBetweenCallsSeconds = waitBetweenCallsSeconds
+        self.defaultCurrencyCode = defaultCurrencyCode
+
+        self.shippingRows = []
+        self.paymentRows = []
+        jsonData = ShippingApi.getShippingAndPaymentInformation(LID)
+
+        self.countryCodes = self.extractCountryCodes(jsonData)
+
+        for countryCode in self.countryCodes:
+            self.shippingRows += [self.getShippingRow(countryCode,self.defaultCurrencyCode)]
+            time.sleep(self.waitBetweenCallsSeconds)
+
+        print(self.shippingRows)
+
+
+    def extractCountryCodes(self,jsonData):
+        countryCodes = set()
+
+        # Extract from 'rates'
+        for rate in jsonData['shipping']['rates']:
+            if 'region_code' in rate:
+                countryCodes.add(rate['region_code'])
+
+        # Extract from 'destination_country'
+        if 'short_code' in jsonData['shipping']['destination_country']['country']:
+            countryCode = jsonData['shipping']['destination_country']['country']['short_code']
+            countryCodes.add(countryCode)
+
+        return list(countryCodes)
+
+    def getShippingRow(self, countryCode, currencyCode = "USD"):
+
+        data = ShippingApi.getShippingAndPaymentInformation(self.LID, countryCode, currencyCode)
+
+        # Initialize resultDict with default values
+        resultDict = {
+            "LID": self.LID,
+            "countryCode": countryCode,
+            "countryName": None,
+            "currencyCode": currencyCode,  # Use the passed currency code directly
+            "estimatedDeliveryTimesDaysLower": None,
+            "estimatedDeliveryTimesDaysUpper": None,
+            "price": None,
+            "combinedShippingAllowed": None
+        }
+
+        if 'shipping' in data:
+            shippingInfo = data['shipping']
+
+            for rate in shippingInfo.get('rates', []):
+                if rate.get('region_code') == countryCode:
+                    resultDict['countryName'] = rate.get('region_name')
+                    resultDict['price'] = rate.get('price', 0) / 100  # Convert to correct format
+                    break
+
+            if 'estimated_delivery_times' in shippingInfo and len(shippingInfo['estimated_delivery_times']) > 0:
+                resultDict['estimatedDeliveryTimesDaysLower'] = shippingInfo['estimated_delivery_times'][0].get(
+                    'from_days')
+                resultDict['estimatedDeliveryTimesDaysUpper'] = shippingInfo['estimated_delivery_times'][0].get(
+                    'to_days')
+
+            resultDict['combinedShippingAllowed'] = shippingInfo.get('combined_shipping_allowed')
+
+        return resultDict
 
 
 if __name__ == '__main__':
 
     randomLID = 78396749
     bidBs4 = BidApi.getBids(randomLID)
-    bidsDicts = json.loads(bidBs4.text)["bids"][0]
+    """for bid in json.loads(bidBs4.text)["bids"]:
+        bidsDicts = bid
 
+        #We check to see if this is the final bid
+        finalBidsDict = json.loads(BidApi.getLatestBid(randomLID).text)["lots"][0]
+        print(BidData(randomLID,bidsDicts,finalBidsDict))"""
 
-    #We check to see if this is the final bid
-    finalBidsDict = json.loads(BidApi.getLatestBid(randomLID).text)["lots"][0]
-    print(BidData(randomLID,bidsDicts,finalBidsDict))
+    ShippingData(randomLID)
 
 
 

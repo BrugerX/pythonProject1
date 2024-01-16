@@ -1,5 +1,6 @@
 import requests
 import bs4
+import json
 
 """
 
@@ -27,17 +28,48 @@ class Browser:
         return bs4.BeautifulSoup(request.content,parser)
 
 
-class BidApi:
+class Api:
 
     def __init__(self):
-        pass
+
+        #This is the standard currency code used in our business
+        self.defaultCurrencyCode = "USD"
+        #This is the default country code we're operating our business from
+        self.defaultCountryCode = "dk"
+
+class BidApi(Api):
+
+    def __init__(self):
+        super().__init__()
 
     @staticmethod
-    def getBids(LID):
-        bidApiCallUrl = fr"https://www.catawiki.com/buyer/api/v3/lots/{LID}/bids?currency_code=EUR&per_page=200"
+    def getBids(LID,currencyCode = "USD"):
+        bidApiCallUrl = fr"https://www.catawiki.com/buyer/api/v3/lots/{LID}/bids?currency_code={currencyCode}&per_page=200"
         return Browser.load_bs4(bidApiCallUrl)
 
     @staticmethod
     def getLatestBid(LID):
         latestBidApiCallUrl = fr"https://www.catawiki.com/buyer/api/v3/bidding/lots?ids={LID}"
         return Browser.load_bs4(latestBidApiCallUrl)
+
+
+class ShippingApi(Api):
+
+    def __init__(self):
+        super().__init__()
+
+    """
+    
+    Contains information related to:
+    Shipping:
+            * Price to ship to different world regions (including the specified country the API caller is from).
+            This price is in the format 3995 EUR = 39,95 EUR
+            * Estimated arrival to the specified country code (this can indeed change depend on the countryCode specified)
+    Payment method:
+        * Which payment methods are available.
+    
+    """
+    @staticmethod
+    def getShippingAndPaymentInformation(LID, countryCode = "dk", currencyCode = "USD"):
+        shippingAndPaymentApiCall = fr"https://www.catawiki.com/buyer/api/v2/lots/{LID}/shipping?locale=en&currency_code={currencyCode}&destination_country={countryCode}&amount=365000"
+        return json.loads(Browser.load_bs4(shippingAndPaymentApiCall).text)
