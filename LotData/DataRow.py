@@ -1,7 +1,9 @@
 import json
 import time
 from abc import ABC,abstractmethod
-from Browser import Browser,BidApi,ShippingApi
+from copy import copy
+
+from Browser import Browser,BidApi,ShippingApi,ImageApi
 from Settings import Settings
 import pandas as pd
 
@@ -229,12 +231,77 @@ class ShippingRow(DataRow):
         return self.dataDict
 
 
+"""
+class ImageData(LotData):
+    def __init__(self,LID):
+
+        self.LID = LID
+        soup = Browser.load_bs4(f"https://www.catawiki.com/en/l/{LID}-1-pcs-diamonds-1-00-ct-round-f-vs2-no-reserve-price")
+
+        # Find all <img> tags and filter based on a specific pattern in 'src' or a parent class
+        img_tags = soup.find_all('img')
+        stone_imgs = [img['src'] for img in img_tags if 'catawiki' in img['src'] and 'lot_card' in img['src']]
+
+        print(stone_imgs)
+
+    def getDataRows(self):
+        return self.dataRows
+"""
+
+
+class ImageData(LotData):
+
+
+    def __init__(self, LID, waitBetweenCallsSeconds=2,):
+        super().__init__(LID)
+        self.waitTimeBetweenCallsSeconds = waitBetweenCallsSeconds
+        self.imageGallery = ImageApi.getImageGallery(self.LID,self.waitTimeBetweenCallsSeconds)
+
+        counter = 0
+        for subGallery in self.imageGallery:
+            type = subGallery["type"]
+            for imageDict in subGallery["images"]:
+                counter += 1
+                for size in imageDict.keys():
+                    self.dataRows += [ImageRow(self.LID,counter,type,imageDict[size],size)]
+
+    def getDataRows(self):
+        return self.dataRows
+
+class ImageRow(DataRow):
+    def __init__(self, LID, idx, type, imageDict, size):
+        self.size = size
+        self.idx = idx
+        self.type = type
+        self.imageDict = imageDict
+        self.LID = LID
+
+        self.imageDict["LID"] = LID
+        self.imageDict["idx"] = idx
+        self.imageDict["type"] = type
+        self.imageDict["size"] = size
+        self.imageDict["imageFormat"] = self.getFormat(self.imageDict)
+
+
+        self.dataDict = copy(self.imageDict)
+
+
+
+    def getFormat(self,imageDict):
+        url = imageDict["url"].split(".")
+        format = "." + url[-1]
+        return format
+
+    def getDataDict(self):
+        return self.dataDict
+
+
 if __name__ == '__main__':
 
-    randomLID = 78396749
-    bidBs4 = BidApi.getBids(randomLID)
-    print(ShippingData(randomLID))
-    print(BidData(randomLID))
+    randomLID = 79019263
+    #print(ShippingData(randomLID))
+    #print(BidData(randomLID))
+    print(ImageData(randomLID))
 
 
 

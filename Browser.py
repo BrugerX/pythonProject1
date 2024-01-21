@@ -80,3 +80,13 @@ class ShippingApi(Api):
     def getShippingAndPaymentInformation(LID, countryCode = Settings.getDefaultCountryCode(), currencyCode = Settings.getDefaultCurrencyCode(), waitTimeBetweenCalls = Settings.getDefaultWaitTimeBetweenCallsSeconds()):
         shippingAndPaymentApiCall = fr"https://www.catawiki.com/buyer/api/v2/lots/{LID}/shipping?locale=en&currency_code={currencyCode}&destination_country={countryCode}&amount=365000"
         return json.loads(Browser.load_bs4(shippingAndPaymentApiCall,delayTimeSeconds= waitTimeBetweenCalls).text)
+
+class ImageApi(Api):
+
+    def __init__(self):
+        super().__init__()
+
+    @staticmethod
+    def getImageGallery(LID,waitTimeBetweenCalls = Settings.getDefaultWaitTimeBetweenCallsSeconds()):
+        imageDictsApiCall = fr"https://www.catawiki.com/buyer/api/v3/lots/{LID}/gallery"
+        return json.loads(Browser.load_bs4(imageDictsApiCall,delayTimeSeconds =  waitTimeBetweenCalls).text)["gallery"]
