@@ -2,6 +2,7 @@ import json
 import time
 from abc import ABC,abstractmethod
 from Browser import Browser,BidApi,ShippingApi
+from Settings import Settings
 
 
 class LotData(ABC):
@@ -26,8 +27,15 @@ class LotData(ABC):
 
 
 
-#TODO: BidData only contains a single row, it seems...?
-class BidData(LotData):
+"""
+
+@:arg bidDict: A single dict from the history of bids.
+@:arg finalBidsDict: The dict containing information about the final bid.
+
+Takes those two arguments and turns its dataDict into a single row in the BidSQL
+
+"""
+class BidRow(LotData):
 
     def __init__(self, LID: str, bidDict, finalBidsDict):
         super().__init__(LID)
@@ -39,7 +47,7 @@ class BidData(LotData):
         currencies = []
 
         # Two bids cannot have the same amount, so if the latest bid and our bid have the same amount, they must be the same
-        if (bidsDicts["amount"] == finalBidsDict["current_bid_amount"][bidsDicts["currency_code"]]):
+        if (self.bidDict["amount"] == finalBidsDict["current_bid_amount"][self.bidDict["currency_code"]]):
             isLatestBid = True
 
             # It makes sense to get all the currencies so we know the conversion rates between them in case we need to convert the other non latest bids
@@ -52,8 +60,8 @@ class BidData(LotData):
 
         else:
             isLatestBid = False
-            currentBidAmount += [bidsDicts["amount"]]
-            currencies += [bidsDicts["currency_code"]]
+            currentBidAmount += [self.bidDict["amount"]]
+            currencies += [self.bidDict["currency_code"]]
 
         self.dataDict["bidAmount"] = currentBidAmount
         self.dataDict["currencies"] = currencies
@@ -64,7 +72,7 @@ class BidData(LotData):
         isFinalBid = finalBidsDict["closed"]
         isReservePriceMet = finalBidsDict["reserve_price_met"]
         isBuyNowAvailable = finalBidsDict["is_buy_now_available"]
-        isFromOrder = bidsDicts["from_order"]
+        isFromOrder = self.bidDict["from_order"]
 
         self.dataDict["isFinalBid"] = isFinalBid
         self.dataDict["isReservePriceMet"] = isReservePriceMet
@@ -78,7 +86,7 @@ class BidData(LotData):
         self.dataDict["AID"] = AID
 
         # Related to bidder
-        bidderDict = bidsDicts["bidder"]
+        bidderDict = self.bidDict["bidder"]
         bidderToken = bidderDict["token"]
         bidderName = bidderDict["name"]
         bidderCountryCode = bidderDict["country"]["code"]
@@ -87,8 +95,8 @@ class BidData(LotData):
         self.dataDict["bidderName"] = bidderName
         self.dataDict["bidderCountryCode"] = bidderCountryCode
 
-        timeStamp = bidsDicts["created_at"]
-        explanationType = bidsDicts["explanation_type"]
+        timeStamp = self.bidDict["created_at"]
+        explanationType = self.bidDict["explanation_type"]
 
         self.dataDict["timeStamp"] = timeStamp
         self.dataDict["explanationType"] = explanationType
@@ -98,7 +106,7 @@ class BidData(LotData):
 
 class ShippingData:
 
-    def __init__(self,LID,waitBetweenCallsSeconds = 2, defaultCurrencyCode = "USD"):
+    def __init__(self,LID,waitBetweenCallsSeconds = 2, defaultCurrencyCode = Settings.getDefaultCurrencyCode()):
         self.LID = LID
         self.waitBetweenCallsSeconds = waitBetweenCallsSeconds
         self.defaultCurrencyCode = defaultCurrencyCode
@@ -110,8 +118,8 @@ class ShippingData:
         self.countryCodes = self.extractCountryCodes(jsonData)
 
         for countryCode in self.countryCodes:
-            self.shippingRows += [self.getShippingRow(countryCode,self.defaultCurrencyCode)]
-            time.sleep(self.waitBetweenCallsSeconds)
+            self.shippingRows += [ShippingRow(self.LID,countryCode,self.defaultCurrencyCode)]
+
 
         print(self.shippingRows)
 
@@ -131,9 +139,22 @@ class ShippingData:
 
         return list(countryCodes)
 
-    def getShippingRow(self, countryCode, currencyCode = "USD"):
 
-        data = ShippingApi.getShippingAndPaymentInformation(self.LID, countryCode, currencyCode)
+"""
+
+Each lot can have various shipping options depending on which country the item has to be shipped to. 
+There is therefore one row per one of these options.
+
+"""
+class ShippingRow(LotData):
+
+    def __init__(self,LID,countryCode, currencyCode = Settings.getDefaultCurrencyCode()):
+
+        self.LID = LID
+        self.countryCode = countryCode
+        self.currencyCode = currencyCode
+
+        data = ShippingApi.getShippingAndPaymentInformation(self.LID, self.countryCode, self.currencyCode)
 
         # Initialize resultDict with default values
         resultDict = {
@@ -164,7 +185,10 @@ class ShippingData:
 
             resultDict['combinedShippingAllowed'] = shippingInfo.get('combined_shipping_allowed')
 
-        return resultDict
+        self.dataDict = resultDict
+
+    def getDataDict(self):
+        return self.dataDict
 
 
 if __name__ == '__main__':

@@ -1,6 +1,10 @@
+import time
+
 import requests
 import bs4
 import json
+
+from Settings import Settings
 
 """
 
@@ -19,7 +23,9 @@ class Browser:
         return requests.get(URL)
 
     @staticmethod
-    def load_bs4(URL,parser = "lxml"):
+    def load_bs4(URL,parser = "lxml", delayTimeSeconds = 0):
+
+        time.sleep(delayTimeSeconds)
         request = Browser.load_request(URL)
 
         if request.status_code != 200:
@@ -43,7 +49,7 @@ class BidApi(Api):
         super().__init__()
 
     @staticmethod
-    def getBids(LID,currencyCode = "USD"):
+    def getBids(LID,currencyCode = Settings.getDefaultCurrencyCode()):
         bidApiCallUrl = fr"https://www.catawiki.com/buyer/api/v3/lots/{LID}/bids?currency_code={currencyCode}&per_page=200"
         return Browser.load_bs4(bidApiCallUrl)
 
@@ -70,6 +76,6 @@ class ShippingApi(Api):
     
     """
     @staticmethod
-    def getShippingAndPaymentInformation(LID, countryCode = "dk", currencyCode = "USD"):
+    def getShippingAndPaymentInformation(LID, countryCode = Settings.getDefaultCountryCode(), currencyCode = Settings.getDefaultCurrencyCode(), waitTimeBetweenCalls = Settings.getDefaultWaitTimeBetweenCallsSeconds()):
         shippingAndPaymentApiCall = fr"https://www.catawiki.com/buyer/api/v2/lots/{LID}/shipping?locale=en&currency_code={currencyCode}&destination_country={countryCode}&amount=365000"
-        return json.loads(Browser.load_bs4(shippingAndPaymentApiCall).text)
+        return json.loads(Browser.load_bs4(shippingAndPaymentApiCall,delayTimeSeconds= waitTimeBetweenCalls).text)
