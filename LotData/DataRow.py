@@ -3,9 +3,10 @@ import time
 from abc import ABC,abstractmethod
 from Browser import Browser,BidApi,ShippingApi
 from Settings import Settings
+import pandas as pd
 
 
-class LotData(ABC):
+class DataRow(ABC):
 
     def __init__(self,LID: str):
 
@@ -25,21 +26,38 @@ class LotData(ABC):
     def __repr__(self):
         return f"{self.dataDict}"
 
+class LotData(ABC):
 
-
-class BidData:
-
-    def __init__(self, LID: str, currencyCode = Settings.getDefaultCurrencyCode()):
+    def __init__(self, LID: str):
         self.LID = LID
+        self.dataRows = []
+
+    @abstractmethod
+    def getDataRows(self):
+        return list(DataRow)
+
+    def __str__(self):
+        printStr = ""
+        for row in self.dataRows:
+            printStr += f"\n{row}"
+        return f"{printStr}\n"
+
+
+
+class BidData(LotData):
+
+    def __init__(self, LID: str, currencyCode=Settings.getDefaultCurrencyCode()):
+        super().__init__(LID)
         self.currencyCode = currencyCode
         self.finalBidDict = json.loads(BidApi.getLatestBid(LID).text)["lots"][0]
         self.allBidsDicts = json.loads(BidApi.getBids(LID,self.currencyCode).text)["bids"]
         self.nrOfBids = len(self.allBidsDicts)
-        self.bidRows = []
 
         for bidDict in self.allBidsDicts:
-            self.bidRows += [BidRow(self.LID,bidDict,self.finalBidDict)]
-        print(self.bidRows)
+            self.dataRows += [BidRow(self.LID,bidDict,self.finalBidDict)]
+
+    def getDataRows(self):
+        return self.dataRows
 
 
 
@@ -51,7 +69,7 @@ class BidData:
 Takes those two arguments and turns its dataDict into a single row in the BidSQL
 
 """
-class BidRow(LotData):
+class BidRow(DataRow):
 
     def __init__(self, LID: str, bidDict, finalBidsDict):
         super().__init__(LID)
@@ -126,24 +144,20 @@ class BidRow(LotData):
 Organizes the various shipping and logistics related rows.
 
 """
-class ShippingData:
+class ShippingData(LotData):
 
-    def __init__(self,LID,waitBetweenCallsSeconds = 2, defaultCurrencyCode = Settings.getDefaultCurrencyCode()):
-        self.LID = LID
+    def __init__(self, LID, waitBetweenCallsSeconds=2, defaultCurrencyCode=Settings.getDefaultCurrencyCode()):
+        super().__init__(LID)
         self.waitBetweenCallsSeconds = waitBetweenCallsSeconds
         self.defaultCurrencyCode = defaultCurrencyCode
 
-        self.shippingRows = []
         self.paymentRows = []
         jsonData = ShippingApi.getShippingAndPaymentInformation(LID)
 
         self.countryCodes = self.extractCountryCodes(jsonData)
 
         for countryCode in self.countryCodes:
-            self.shippingRows += [ShippingRow(self.LID,countryCode,self.defaultCurrencyCode)]
-
-
-        print(self.shippingRows)
+            self.dataRows += [ShippingRow(self.LID,countryCode,self.defaultCurrencyCode)]
 
 
     def extractCountryCodes(self,jsonData):
@@ -161,6 +175,8 @@ class ShippingData:
 
         return list(countryCodes)
 
+    def getDataRows(self):
+        return self.dataRows
 
 """
 
@@ -168,11 +184,11 @@ Each lot can have various shipping options depending on which country the item h
 There is therefore one row per one of these options.
 
 """
-class ShippingRow(LotData):
+class ShippingRow(DataRow):
 
-    def __init__(self,LID,countryCode, currencyCode = Settings.getDefaultCurrencyCode()):
+    def __init__(self, LID, countryCode, currencyCode=Settings.getDefaultCurrencyCode()):
 
-        self.LID = LID
+        super().__init__(LID)
         self.countryCode = countryCode
         self.currencyCode = currencyCode
 
@@ -217,15 +233,8 @@ if __name__ == '__main__':
 
     randomLID = 78396749
     bidBs4 = BidApi.getBids(randomLID)
-    """for bid in json.loads(bidBs4.text)["bids"]:
-        bidsDicts = bid
-
-        #We check to see if this is the final bid
-        finalBidsDict = json.loads(BidApi.getLatestBid(randomLID).text)["lots"][0]
-        print(BidData(randomLID,bidsDicts,finalBidsDict))"""
-
-    ShippingData(randomLID)
-    BidData(randomLID)
+    print(ShippingData(randomLID))
+    print(BidData(randomLID))
 
 
 
