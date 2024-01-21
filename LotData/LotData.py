@@ -27,6 +27,22 @@ class LotData(ABC):
 
 
 
+class BidData:
+
+    def __init__(self, LID: str, currencyCode = Settings.getDefaultCurrencyCode()):
+        self.LID = LID
+        self.currencyCode = currencyCode
+        self.finalBidDict = json.loads(BidApi.getLatestBid(LID).text)["lots"][0]
+        self.allBidsDicts = json.loads(BidApi.getBids(LID,self.currencyCode).text)["bids"]
+        self.nrOfBids = len(self.allBidsDicts)
+        self.bidRows = []
+
+        for bidDict in self.allBidsDicts:
+            self.bidRows += [BidRow(self.LID,bidDict,self.finalBidDict)]
+        print(self.bidRows)
+
+
+
 """
 
 @:arg bidDict: A single dict from the history of bids.
@@ -104,6 +120,12 @@ class BidRow(LotData):
     def getDataDict(self):
         return self.dataDict
 
+
+"""
+
+Organizes the various shipping and logistics related rows.
+
+"""
 class ShippingData:
 
     def __init__(self,LID,waitBetweenCallsSeconds = 2, defaultCurrencyCode = Settings.getDefaultCurrencyCode()):
@@ -203,6 +225,7 @@ if __name__ == '__main__':
         print(BidData(randomLID,bidsDicts,finalBidsDict))"""
 
     ShippingData(randomLID)
+    BidData(randomLID)
 
 
 
