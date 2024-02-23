@@ -3,8 +3,13 @@ import time
 import requests
 import bs4
 import json
-
+from selenium import webdriver
 from Settings import Settings
+from selenium.common import TimeoutException
+from selenium import webdriver
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
 
 """
 
@@ -32,6 +37,7 @@ class Browser:
             raise Exception(f"Got error code:{request.status_code} when trying to load_bs4 for {URL}")
 
         return bs4.BeautifulSoup(request.content,parser)
+
 
 
 class Api:
@@ -90,3 +96,66 @@ class ImageApi(Api):
     def getImageGallery(LID,waitTimeBetweenCalls = Settings.getDefaultWaitTimeBetweenCallsSeconds()):
         imageDictsApiCall = fr"https://www.catawiki.com/buyer/api/v3/lots/{LID}/gallery"
         return json.loads(Browser.load_bs4(imageDictsApiCall,delayTimeSeconds =  waitTimeBetweenCalls).text)["gallery"]
+
+
+class SeleniumBrowser():
+
+    def __init__(self):
+        pass
+
+    @staticmethod
+    def getEdgedriver():
+        return webdriver.Edge(executable_path=r"C:\Users\DripTooHard\PycharmProjects\pythonProject1\edgedriver_win64\msedgedriver.exe")
+
+
+class SpecsApi(Api):
+    def __init__(self):
+        super(SpecsApi, self)()
+
+    @staticmethod
+    def getRequestUrl(LID):
+        requestUrl = f"https://www.catawiki.com/en/l/{LID}"
+        return requestUrl
+
+    @staticmethod
+    def getClosedAuctionSoup(LID):
+        requestUrl = f"https://www.catawiki.com/en/l/{LID}"
+        driver = SeleniumBrowser.getEdgedriver()
+        driver.get(requestUrl)
+
+        try:
+
+            # Wait and click the cookie button
+            WebDriverWait(driver, 10).until(
+                EC.element_to_be_clickable((By.CLASS_NAME, "gtm-cookie-bar-decline"))
+            ).click()
+
+            try:
+                view_lot_btn = WebDriverWait(driver, 10).until(
+                    EC.presence_of_element_located((By.CLASS_NAME, "lot-closed-banner__view-this-lot"))
+                )
+                driver.execute_script("arguments[0].click();", view_lot_btn)
+
+            except TimeoutException:
+
+                # If "View this lot" button does not exist, then find the "Show all info" button
+                show_all_info_btn = WebDriverWait(driver, 10).until(
+                    EC.presence_of_element_located((By.CSS_SELECTOR, "[data-testid='closed-odp-show-all-info']"))
+                )
+                # Use JavaScript to click the "Show all info" button
+                driver.execute_script("arguments[0].click();", show_all_info_btn)
+
+            html = driver.page_source
+
+            soup = bs4.BeautifulSoup(html)
+            return soup
+
+        except Exception as e:
+            print("Error occurred while getting the closed auctions soup: ", e)
+
+    @staticmethod
+    def getActiveAuctionSoup(LID):
+        requestUrl = f"https://www.catawiki.com/en/l/{LID}"
+        soup = Browser.load_bs4(requestUrl, "lxml")
+        return soup
+

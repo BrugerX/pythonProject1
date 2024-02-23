@@ -3,7 +3,15 @@ import time
 from abc import ABC,abstractmethod
 from copy import copy
 
-from Browser import Browser,BidApi,ShippingApi,ImageApi
+from selenium.common import TimeoutException
+from selenium import webdriver
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+import Browser
+import bs4
+
+from Browser import Browser,BidApi,ShippingApi,ImageApi,SpecsApi
 from Settings import Settings
 import pandas as pd
 
@@ -36,7 +44,7 @@ class LotData(ABC):
 
     @abstractmethod
     def getDataRows(self):
-        return list(DataRow)
+        return list(self.dataRows)
 
     def __str__(self):
         printStr = ""
@@ -296,12 +304,42 @@ class ImageRow(DataRow):
         return self.dataDict
 
 
+class SpecData(LotData):
+
+    def __init__(self,LID,isClosed):
+        super(SpecData, self).__init__(LID)
+
+
+        if(isClosed):
+            specsSoup = SpecsApi.getClosedAuctionSoup(self.LID)
+        else:
+            specsSoup = SpecsApi.getActiveAuctionSoup(self.LID)
+
+        self.dataRows = self.getSpecsFromSoup(specsSoup)
+
+    def getDataRows(self):
+        return [self.dataRows]
+
+    def getSpecsFromSoup(self, soup):
+        specs = soup.findAll("div", {"class": "be-lot-specifications u-m-t-sm-xl u-m-t-xxl-2"})
+        specifications = {}
+
+        # Iterate over all spec values and names and turn them into a dict.
+        for spec in specs[0].find_all("div", class_="be-lot-specification"):
+            name = spec.find("span", class_="be-lot-specification__name").get_text(strip=True)
+            value = spec.find("div", class_="be-lot-specification__value").get_text(strip=True)
+            specifications[name] = value
+
+        return specifications
+
+
 if __name__ == '__main__':
 
-    randomLID = 79019263
-    #print(ShippingData(randomLID))
-    #print(BidData(randomLID))
-    print(ImageData(randomLID))
+    randomLID = 79066981
+    print(ShippingData(randomLID).getDataRows())
+    print(BidData(randomLID).getDataRows())
+    print(ImageData(randomLID).getDataRows())
+    print(SpecData(randomLID,True).getDataRows())
 
 
 
