@@ -114,15 +114,6 @@ class SeleniumBrowser():
             EC.element_to_be_clickable((By.CLASS_NAME, "gtm-cookie-bar-decline"))
         ).click()
 
-class SpecsApi(Api):
-    def __init__(self):
-        super(SpecsApi, self)()
-
-    @staticmethod
-    def getRequestUrl(LID):
-        requestUrl = f"https://www.catawiki.com/en/l/{LID}"
-        return requestUrl
-
     @staticmethod
     def getClosedAuctionSoup(LID):
         requestUrl = f"https://www.catawiki.com/en/l/{LID}"
@@ -162,4 +153,15 @@ class SpecsApi(Api):
         requestUrl = f"https://www.catawiki.com/en/l/{LID}"
         soup = Browser.load_bs4(requestUrl, "lxml")
         return soup
+
+class SpecsApi(Api):
+    def __init__(self):
+        super(SpecsApi, self)()
+
+    @staticmethod
+    def getRequestUrl(LID):
+        requestUrl = f"https://www.catawiki.com/en/l/{LID}"
+        return requestUrl
+
+
 

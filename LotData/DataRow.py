@@ -11,8 +11,9 @@ from selenium.webdriver.support import expected_conditions as EC
 import Browser
 import bs4
 
-from Browser import Browser,BidApi,ShippingApi,ImageApi,SpecsApi
+from Browser import Browser,BidApi,ShippingApi,ImageApi,SpecsApi,SeleniumBrowser
 from Settings import Settings
+from webscrapingUtil import turnDecimalNumberIntoInt
 import pandas as pd
 
 
@@ -52,6 +53,10 @@ class LotData(ABC):
             printStr += f"\n{row}"
         return f"{printStr}\n"
 
+class ScrapingBasedLotData(LotData):
+    def __init__(self, LID: str, lotSoup):
+        super().__init__(LID)
+        self.soup = lotSoup
 
 
 class BidData(LotData):
@@ -304,18 +309,11 @@ class ImageRow(DataRow):
         return self.dataDict
 
 
-class SpecData(LotData):
+class SpecData(ScrapingBasedLotData):
 
     def __init__(self,LID,isClosed):
-        super(SpecData, self).__init__(LID)
-
-
-        if(isClosed):
-            specsSoup = SpecsApi.getClosedAuctionSoup(self.LID)
-        else:
-            specsSoup = SpecsApi.getActiveAuctionSoup(self.LID)
-
-        self.dataRows = self.getSpecsFromSoup(specsSoup)
+        super(SpecData, self).__init__(LID,isClosed)
+        self.dataRows = self.getSpecsFromSoup(self.soup)
 
     def getDataRows(self):
         return [self.dataRows]
@@ -332,15 +330,49 @@ class SpecData(LotData):
 
         return specifications
 
+class AuctionData(ScrapingBasedLotData):
+
+    def __init__(self,LID,isClosed):
+        super(AuctionData, self).__init__(LID,isClosed)
+        self.dataRows = self.getAuctionDataFromSoup(self.soup)
+
+
+    def getAuctionDataFromSoup(self,soup):
+        spans = soup.find_all("span", {"class": "u-no-wrap"})
+        (e1,e2) = self.getEstimatesFromSpan(spans)
+        return {"expert_estimate_min":e1,"expert_estimate_max":e2}
+
+
+
+    def getEstimatesFromSpan(self,spans):
+        est1 = None
+        est2 = None
+        for span in spans:
+            if (span.text[0] == "€"):
+                if (est1 is None):
+                    est1 = turnDecimalNumberIntoInt(span.text[2:])
+                elif (est2 is None):
+                    est2 = turnDecimalNumberIntoInt(span.text[2:])
+                else:
+                    return "Two estimates it seems"
+
+        if (est1 < est2):
+            return (est1, est2)
+        else:
+            #Based off the current HTML structure (09-05-2024) something has had to have gone wrong for est1 to be larger than est2
+            raise Exception("est1 larger than est2")
+            return (est2, est1)
+
+    def getDataRows(self):
+        return [self.dataRows]
+
 class ALlLotData(LotData):
 
     def __init__(self,LID):
         self.LID = LID
-        self.isClosed
-        self.datRows = self.getDataRows()
-
-
-
+        self.isClosed = None
+        self.lotSoup = None
+        self.dataRows = self.getDataRows()
 
     def getDataRows(self):
         shippingData = self.getShippingData(self.LID)
@@ -349,15 +381,31 @@ class ALlLotData(LotData):
 
         self.isClosed = self.checkIfIsClosed(bidData)
 
-        specData = self.getSpecData(self.LID,self.isClosed)
+        self.lotSoup = self.getLotSoup(self.LID,self.isClosed)
+
+        """Scraping based lotDatas need to be given the soup in order to minimize the amount of times we need to instantiate the webbrowser"""
+        specData = self.getSpecData(self.LID,self.lotSoup)
+        auctionData = self.getAuctioNData(self.LID,self.lotSoup)
 
         return {"shippingData":shippingData,"specData": specData,"bidData":bidData,"imageData":imageData}
 
     def checkIfIsClosed(self,biData):
-        for bids in biData:
-            if(bids["isFinalBid"]):
+        for bidRow in biData:
+            if(bidRow.getDataDict()["isFinalBid"]):
                 return True
         return False
+
+    def getLotSoup(self,LID,isClosed):
+
+        if(isClosed):
+            soup = SeleniumBrowser.getClosedAuctionSoup(LID)
+        else:
+            soup = SeleniumBrowser.getActiveAuctionSoup(LID)
+
+        return soup
+
+    def getAuctioNData(self,LID,isClosed):
+        return AuctionData(LID,isClosed)
 
     def getShippingData(self,LID):
         return ShippingData(LID).getDataRows()
@@ -384,7 +432,9 @@ if __name__ == '__main__':
     print(ShippingData(randomLID).getDataRows())
     print(BidData(randomLID).getDataRows())
     print(ImageData(randomLID).getDataRows())
-    print(SpecData(randomLID,True).getDataRows())
+
+    lotData = ALlLotData(randomLID)
+    print(lotData.dataRows)
 
 
 
