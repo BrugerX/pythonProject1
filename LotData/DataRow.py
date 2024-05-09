@@ -118,7 +118,7 @@ class BidRow(DataRow):
         isBuyNowAvailable = finalBidsDict["is_buy_now_available"]
         isFromOrder = self.bidDict["from_order"]
 
-        self.dataDict["isFinalBid"] = isFinalBid
+        self.dataDict["isFinalBid"] = isFinalBid & isLatestBid
         self.dataDict["isReservePriceMet"] = isReservePriceMet
         self.dataDict["isBuyNowAvailable"] = isBuyNowAvailable
         self.dataDict["isFromOrder"] = isFromOrder
@@ -331,6 +331,51 @@ class SpecData(LotData):
             specifications[name] = value
 
         return specifications
+
+class ALlLotData(LotData):
+
+    def __init__(self,LID):
+        self.LID = LID
+        self.isClosed
+        self.datRows = self.getDataRows()
+
+
+
+
+    def getDataRows(self):
+        shippingData = self.getShippingData(self.LID)
+        bidData = self.getBidData(self.LID)
+        imageData = self.getImageData(self.LID)
+
+        self.isClosed = self.checkIfIsClosed(bidData)
+
+        specData = self.getSpecData(self.LID,self.isClosed)
+
+        return {"shippingData":shippingData,"specData": specData,"bidData":bidData,"imageData":imageData}
+
+    def checkIfIsClosed(self,biData):
+        for bids in biData:
+            if(bids["isFinalBid"]):
+                return True
+        return False
+
+    def getShippingData(self,LID):
+        return ShippingData(LID).getDataRows()
+
+    def getBidData(self,LID):
+        return BidData(LID).getDataRows()
+
+    def getImageData(self,LID):
+        return ImageData(LID).getDataRows()
+
+    def getSpecData(self,LID,isClosed):
+        return SpecData(LID,isClosed).getDataRows()
+
+
+
+
+
+
 
 
 if __name__ == '__main__':

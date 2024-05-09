@@ -105,8 +105,14 @@ class SeleniumBrowser():
 
     @staticmethod
     def getEdgedriver():
-        return webdriver.Edge(executable_path=r"C:\Users\DripTooHard\PycharmProjects\pythonProject1\edgedriver_win64\msedgedriver.exe")
+        return webdriver.Edge(executable_path=r"C:\Users\DripTooHard\PycharmProjects\pythonProject1\msedgedriver.exe")
 
+    @staticmethod
+    def declinceCookies(webdriver):
+        # Wait and click the cookie button
+        WebDriverWait(webdriver, 10).until(
+            EC.element_to_be_clickable((By.CLASS_NAME, "gtm-cookie-bar-decline"))
+        ).click()
 
 class SpecsApi(Api):
     def __init__(self):
@@ -126,9 +132,7 @@ class SpecsApi(Api):
         try:
 
             # Wait and click the cookie button
-            WebDriverWait(driver, 10).until(
-                EC.element_to_be_clickable((By.CLASS_NAME, "gtm-cookie-bar-decline"))
-            ).click()
+            SeleniumBrowser.declinceCookies(driver)
 
             try:
                 view_lot_btn = WebDriverWait(driver, 10).until(
