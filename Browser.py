@@ -49,6 +49,7 @@ class Api:
         #This is the default country code we're operating our business from
         self.defaultCountryCode = "dk"
 
+
 #TODO: Make all the APIs return JSON dicts
 class BidApi(Api):
 
