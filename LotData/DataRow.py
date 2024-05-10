@@ -42,10 +42,16 @@ class LotData(ABC):
     def __init__(self, LID: str):
         self.LID = LID
         self.dataRows = []
+        #We start at -1, because if we start at 0 it fucks up and ends the iteration 1 iteration too soon - do the maths in "__next__"
+        self.currentDataRowNr = -1
+        self.nrDataRows = self.getNrDataRows()
 
     @abstractmethod
     def getDataRows(self):
         return list(self.dataRows)
+
+    def getNrDataRows(self):
+        return len(self.dataRows)
 
     def __str__(self):
         printStr = ""
@@ -53,10 +59,46 @@ class LotData(ABC):
             printStr += f"\n{row}"
         return f"{printStr}\n"
 
+    def __iter__(self):
+        self.currentDataRowNr = -1
+        return self
+
+    def __next__(self):
+        self.currentDataRowNr += 1
+
+        if(self.currentDataRowNr>self.nrDataRows):
+            raise StopIteration
+
+        resultOfNext = self.dataRows[self.currentDataRowNr]
+
+        #We require our dataRows to be either dataRows with dataDicts or outright dicts
+        if(type(resultOfNext) == DataRow):
+            resultOfNext = resultOfNext.getDataDict()
+        elif(type(resultOfNext) == dict):
+            pass
+        else:
+            raise Exception("self.dataRows not properly formatted")
+
+
+        return resultOfNext
+
+    def __len__(self):
+        return self.nrDataRows
+
+    def __getitem__(self, item):
+        return self.dataRows[item].getDataDict()
+
+
+"""
+    Most of our scrapers simply use the website's own API to get the neccessary information.
+    However some of them need the lot's dynamic BS4 soup.
+    In order to avoid overburdening the server with unneccessary requests we have created this object, which takes the lot's soup and gathers the information from there.
+
+"""
 class ScrapingBasedLotData(LotData):
     def __init__(self, LID: str, lotSoup):
         super().__init__(LID)
-        self.soup = lotSoup
+        self.lotSoup = lotSoup
 
 
 class BidData(LotData):
@@ -68,11 +110,14 @@ class BidData(LotData):
         self.allBidsDicts = json.loads(BidApi.getBids(LID,self.currencyCode).text)["bids"]
         self.nrOfBids = len(self.allBidsDicts)
 
+
         for bidDict in self.allBidsDicts:
             self.dataRows += [BidRow(self.LID,bidDict,self.finalBidDict)]
 
     def getDataRows(self):
+
         return self.dataRows
+
 
 
 
@@ -198,6 +243,9 @@ class ShippingData(LotData):
 Each lot can have various shipping options depending on which country the item has to be shipped to. 
 There is therefore one row per one of these options.
 
+The scraper's host country will always show, even if it is covered by a super-region.
+I.g DK will be shown even if there is a general shipping rate for EU.
+
 """
 class ShippingRow(DataRow):
 
@@ -264,7 +312,6 @@ class ImageData(LotData):
 
 class ImageData(LotData):
 
-
     def __init__(self, LID, waitBetweenCallsSeconds=2,):
         super().__init__(LID)
         self.waitTimeBetweenCallsSeconds = waitBetweenCallsSeconds
@@ -313,7 +360,7 @@ class SpecData(ScrapingBasedLotData):
 
     def __init__(self,LID,isClosed):
         super(SpecData, self).__init__(LID,isClosed)
-        self.dataRows = self.getSpecsFromSoup(self.soup)
+        self.dataRows = self.getSpecsFromSoup(self.lotSoup)
 
     def getDataRows(self):
         return [self.dataRows]
@@ -334,7 +381,7 @@ class AuctionData(ScrapingBasedLotData):
 
     def __init__(self,LID,isClosed):
         super(AuctionData, self).__init__(LID,isClosed)
-        self.dataRows = self.getAuctionDataFromSoup(self.soup)
+        self.dataRows = [self.getAuctionDataFromSoup(self.lotSoup)]
 
 
     def getAuctionDataFromSoup(self,soup):
@@ -344,6 +391,12 @@ class AuctionData(ScrapingBasedLotData):
 
 
 
+    """
+    
+    @arg spans The spans taken from the lot's DOM/HTML soup with class "u-no-wrap", this may change depending on the structure of the website going forward.
+    @:return The expert's estimate in a tuple, in order.
+    
+    """
     def getEstimatesFromSpan(self,spans):
         est1 = None
         est2 = None
@@ -387,7 +440,7 @@ class ALlLotData(LotData):
         specData = self.getSpecData(self.LID,self.lotSoup)
         auctionData = self.getAuctioNData(self.LID,self.lotSoup)
 
-        return {"shippingData":shippingData,"specData": specData,"bidData":bidData,"imageData":imageData}
+        return {"shippingData":shippingData,"specData": specData,"bidData":bidData,"imageData":imageData, "auctionData":auctionData}
 
     def checkIfIsClosed(self,biData):
         for bidRow in biData:
@@ -419,6 +472,11 @@ class ALlLotData(LotData):
     def getSpecData(self,LID,isClosed):
         return SpecData(LID,isClosed).getDataRows()
 
+    def __getitem__(self, item):
+        return self.dataRows[item]
+
+    def keys(self):
+        return self.dataRows.keys()
 
 
 
@@ -433,8 +491,15 @@ if __name__ == '__main__':
     print(BidData(randomLID).getDataRows())
     print(ImageData(randomLID).getDataRows())
 
+
     lotData = ALlLotData(randomLID)
-    print(lotData.dataRows)
+    for key in lotData.keys():
+        print(f"Current key: {key} \n")
+        drow = lotData[key]
+        for row in drow:
+            print(row)
+
+
 
 
 
