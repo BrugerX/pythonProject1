@@ -25,7 +25,12 @@ def maxIntElements(htmlElements):
             currentMax = integerValue
     return currentMax
 
-def getLIDFromLink(URL):
+
+"""
+    Gets the LID from an URL
+
+"""
+def getLIDFromURL(URL):
     # Regular expression to extract only the digits following '/l/' and before the hyphen
     pattern = r"/l/([0-9]+)-"
 
@@ -37,3 +42,14 @@ def getLIDFromLink(URL):
         return matches[0]
     else:
         raise RuntimeError(f"No match for link: {URL}")
+
+
+"""
+    Takes a dict of replacement rules for ReGex and applies them to text
+
+"""
+def multipleReplaceReGeX(replacements, text):
+    # Create a regular expression from the dictionary keys
+    regex = re.compile("(%s)" % "|".join(map(re.escape, replacements.keys())))
+    # For each match, look-up corresponding value in dictionary
+    return regex.sub(lambda mo: replacements[mo.group()], text)

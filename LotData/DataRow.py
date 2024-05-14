@@ -2,6 +2,7 @@ import json
 import time
 from abc import ABC,abstractmethod
 from copy import copy
+import re
 
 from selenium.common import TimeoutException
 from selenium import webdriver
@@ -13,7 +14,7 @@ import bs4
 
 from Browser import Browser,BidApi,ShippingApi,ImageApi,SpecsApi,SeleniumBrowser
 from Settings import Settings
-from webscrapingUtil import turnDecimalNumberIntoInt
+from utility.webscrapingUtil import turnDecimalNumberIntoInt,multipleReplaceReGeX
 import pandas as pd
 
 
@@ -36,6 +37,9 @@ class DataRow(ABC):
 
     def __repr__(self):
         return f"{self.dataDict}"
+
+    def __getitem__(self, item):
+        return self.dataDict[item]
 
 class LotData(ABC):
 
@@ -72,12 +76,12 @@ class LotData(ABC):
         resultOfNext = self.dataRows[self.currentDataRowNr]
 
         #We require our dataRows to be either dataRows with dataDicts or outright dicts
-        if(type(resultOfNext) == DataRow):
+        if(isinstance(resultOfNext,DataRow)):
             resultOfNext = resultOfNext.getDataDict()
         elif(type(resultOfNext) == dict):
             pass
         else:
-            raise Exception("self.dataRows not properly formatted")
+            raise Exception(f"self.dataRows not properly formatted: {resultOfNext} with type {type(resultOfNext)}")
 
 
         return resultOfNext
@@ -108,14 +112,12 @@ class BidData(LotData):
         self.currencyCode = currencyCode
         self.finalBidDict = json.loads(BidApi.getLatestBid(LID).text)["lots"][0]
         self.allBidsDicts = json.loads(BidApi.getBids(LID,self.currencyCode).text)["bids"]
-        self.nrOfBids = len(self.allBidsDicts)
 
 
         for bidDict in self.allBidsDicts:
             self.dataRows += [BidRow(self.LID,bidDict,self.finalBidDict)]
 
     def getDataRows(self):
-
         return self.dataRows
 
 
@@ -139,6 +141,7 @@ class BidRow(DataRow):
 
         currentBidAmount = []
         currencies = []
+        self.dataDict["BID"] = bidDict["id"]
 
         # Two bids cannot have the same amount, so if the latest bid and our bid have the same amount, they must be the same
         if (self.bidDict["amount"] == finalBidsDict["current_bid_amount"][self.bidDict["currency_code"]]):
@@ -168,7 +171,8 @@ class BidRow(DataRow):
         isBuyNowAvailable = finalBidsDict["is_buy_now_available"]
         isFromOrder = self.bidDict["from_order"]
 
-        self.dataDict["isFinalBid"] = isFinalBid & isLatestBid
+        self.dataDict["isFinalBid"] = isFinalBid and isLatestBid
+        self.dataDict["isClosedAtScraping"] = isFinalBid
         self.dataDict["isReservePriceMet"] = isReservePriceMet
         self.dataDict["isBuyNowAvailable"] = isBuyNowAvailable
         self.dataDict["isFromOrder"] = isFromOrder
@@ -192,7 +196,7 @@ class BidRow(DataRow):
         timeStamp = self.bidDict["created_at"]
         explanationType = self.bidDict["explanation_type"]
 
-        self.dataDict["timeStamp"] = timeStamp
+        self.dataDict["bidTimeStamp"] = timeStamp
         self.dataDict["explanationType"] = explanationType
 
     def getDataDict(self):
@@ -381,96 +385,149 @@ class AuctionData(ScrapingBasedLotData):
 
     def __init__(self,LID,isClosed):
         super(AuctionData, self).__init__(LID,isClosed)
-        self.dataRows = [self.getAuctionDataFromSoup(self.lotSoup)]
+
+        #Regex patterns
+        #TODO: Make a Regex object?
+        self.euroNumberPattern = "€([0-9])+(,([0-9])+)?"  # Pattern for € 8,000
+        self.expertEstimatePattern = re.compile(f"expertestimate{self.euroNumberPattern}-{self.euroNumberPattern}")
+
+        self.dataRows = None
 
 
     def getAuctionDataFromSoup(self,soup):
-        spans = soup.find_all("span", {"class": "u-no-wrap"})
-        (e1,e2) = self.getEstimatesFromSpan(spans)
-        return {"expert_estimate_min":e1,"expert_estimate_max":e2}
 
+        spans = soup.find_all("span")
+        (e1,e2) = self.findExpertEstimate(spans)
 
+        self.dataRows = {"expert_estimate_min":e1,"expert_estimate_max":e2}
 
     """
-    
-    @arg spans The spans taken from the lot's DOM/HTML soup with class "u-no-wrap", this may change depending on the structure of the website going forward.
-    @:return The expert's estimate in a tuple, in order.
-    
-    """
-    def getEstimatesFromSpan(self,spans):
-        est1 = None
-        est2 = None
-        for span in spans:
-            if (span.text[0] == "€"):
-                if (est1 is None):
-                    est1 = turnDecimalNumberIntoInt(span.text[2:])
-                elif (est2 is None):
-                    est2 = turnDecimalNumberIntoInt(span.text[2:])
-                else:
-                    return "Two estimates it seems"
 
-        if (est1 < est2):
-            return (est1, est2)
+    @:arg expertEstSpan The sanitized text of the span node and its parent, such that their combined RAW text is of the form:
+        "Expert Estimate € 8,000 - € 9,000" - where the second number always has to be larger than the first.
+
+        The sanitized text must be all lowercase with no white spaces, such that
+        "Expert Estimate € 8,000 - € 9,000" -> "expertestimate€8,000-€9,000"
+
+
+    @return The expert's estimates as ints, where return[0] < return[1] - example [8000,9000]
+    """
+
+    def extractExpertEstimateFromText(self,expertEstSpanText):
+        estMinMax = multipleReplaceReGeX({"expertestimate": "", "€": "", ",": ""}, expertEstSpanText).split(
+            "-")  # Remove unneccessary chars and split it on the "-"
+        estMinMax = [int(est) for est in estMinMax]
+
+        if (estMinMax[0] < estMinMax[1]):
+            return tuple(estMinMax)  # We turn it into a tuple, so we don't accidentally mutate it later
         else:
-            #Based off the current HTML structure (09-05-2024) something has had to have gone wrong for est1 to be larger than est2
-            raise Exception("est1 larger than est2")
-            return (est2, est1)
+            raise RuntimeError(
+                f"Our scraping method for expert's estimates didn't work.\n For the following test: {expertEstSpanText} we got the following estimate min: {estMinMax[0]} and max {estMinMax[1]}")
+
+    def findExpertEstimate(self,spans):
+
+        #Find the span with the expert estimate text
+        for span in spans:
+            spanParentText = span.find_parent().text
+            # TODO: The below thing is O(3n) = O(n), maybe there is a faster way where we don't have to turn it lowercase and remove white spaces first?
+            sanitizedParentText = "".join(spanParentText.split()).lower()  # Lowercase without spaces between
+
+
+            if (re.match(self.expertEstimatePattern, sanitizedParentText) is not None):
+                #We have now found the proper span
+                return self.extractExpertEstimateFromText(sanitizedParentText)
+
+            raise RuntimeError(f"Didn't find expert estimate in the list of spans {spans}")
 
     def getDataRows(self):
         return [self.dataRows]
 
+
+"""
+NOTE: dataRows is not a list but a dict in the case of AllLotData
+
+"""
 class ALlLotData(LotData):
 
     def __init__(self,LID):
         self.LID = LID
         self.isClosed = None
         self.lotSoup = None
-        self.dataRows = self.getDataRows()
+        self.bidData = self.imageData = self.shippingData = None
+        self.timeStamp = time.time()
+        self.errorsProcessing = []
+        self.URLUsed = SeleniumBrowser.getAuctionURL(self.LID)
 
-    def getDataRows(self):
-        shippingData = self.getShippingData(self.LID)
-        bidData = self.getBidData(self.LID)
-        imageData = self.getImageData(self.LID)
 
-        self.isClosed = self.checkIfIsClosed(bidData)
 
-        self.lotSoup = self.getLotSoup(self.LID,self.isClosed)
+    def getAPIBasedData(self):
+        #TODO: Implement proper exception calling and handling within the various LotData objects
+        try:
+            self.bidData = self.getBidData(self.LID)
+            self.imageData = self.getImageData(self.LID)
+            self.shippingData = self.getShippingData(self.LID)
+        except Exception as e:
+            print(e.with_traceback())
+            self.errorsProcessing += [e]
+
+    def getScrapingBasedData(self):
+
+        if(self.lotSoup is None):
+            raise RuntimeError("Lot soup not yet scraped properly")
 
         """Scraping based lotDatas need to be given the soup in order to minimize the amount of times we need to instantiate the webbrowser"""
-        specData = self.getSpecData(self.LID,self.lotSoup)
-        auctionData = self.getAuctioNData(self.LID,self.lotSoup)
+        self.specData = self.getSpecData(self.LID,self.lotSoup)
+        self.auctionData = self.getAuctioNData(self.LID,self.lotSoup)
 
-        return {"shippingData":shippingData,"specData": specData,"bidData":bidData,"imageData":imageData, "auctionData":auctionData}
+    def getDataRows(self):
 
-    def checkIfIsClosed(self,biData):
-        for bidRow in biData:
-            if(bidRow.getDataDict()["isFinalBid"]):
-                return True
-        return False
+        self.getAPIBasedData()
+        self.checkIfIsClosed()
+        self.getLotSoup()
 
-    def getLotSoup(self,LID,isClosed):
+        self.getScrapingBasedData()
 
-        if(isClosed):
-            soup = SeleniumBrowser.getClosedAuctionSoup(LID)
+        self.dataRows = {"shippingData":self.shippingData,"specData": self.specData,"bidData":self.bidData,"imageData":self.imageData, "auctionData":self.auctionData,"metaData":self.getMetaData()}
+
+    def checkIfIsClosed(self):
+        if(self.bidData is None):
+            raise RuntimeError("Biddata is not initialized (correctly)")
+
+        for bidRow in self.bidData:
+            if(bidRow["isFinalBid"]):
+                self.isClosed = True
+
+        self.isClosed = False
+
+    def getLotSoup(self):
+
+        if(self.isClosed):
+            soup = SeleniumBrowser.getClosedAuctionSoup(self.LID)
         else:
-            soup = SeleniumBrowser.getActiveAuctionSoup(LID)
+            soup = SeleniumBrowser.getActiveAuctionSoup(self.LID)
 
-        return soup
+        if(soup is None):
+            raise RuntimeError(f"Unable to get lot soup for LID: {self.LID} - assumed the auction was closed? : {self.isClosed}")
+
+        self.lotSoup = soup
 
     def getAuctioNData(self,LID,isClosed):
         return AuctionData(LID,isClosed)
 
     def getShippingData(self,LID):
-        return ShippingData(LID).getDataRows()
+        return ShippingData(LID)
+
+    def getMetaData(self):
+        return [{"lotURLUsed":self.URLUsed, "errorsProcessing":self.errorsProcessing,"timestampUNIX":self.timeStamp}]
 
     def getBidData(self,LID):
-        return BidData(LID).getDataRows()
+        return BidData(LID)
 
     def getImageData(self,LID):
-        return ImageData(LID).getDataRows()
+        return ImageData(LID)
 
     def getSpecData(self,LID,isClosed):
-        return SpecData(LID,isClosed).getDataRows()
+        return SpecData(LID,isClosed)
 
     def __getitem__(self, item):
         return self.dataRows[item]

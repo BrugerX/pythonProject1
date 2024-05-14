@@ -43,11 +43,7 @@ class Browser:
 class Api:
 
     def __init__(self):
-
-        #This is the standard currency code used in our business
-        self.defaultCurrencyCode = "USD"
-        #This is the default country code we're operating our business from
-        self.defaultCountryCode = "dk"
+        pass
 
 
 #TODO: Make all the APIs return JSON dicts
@@ -99,6 +95,13 @@ class ImageApi(Api):
         return json.loads(Browser.load_bs4(imageDictsApiCall,delayTimeSeconds =  waitTimeBetweenCalls).text)["gallery"]
 
 
+class LotApi(Api):
+
+    @staticmethod
+    def getLotDescription(LID, currencyCode = Settings.getDefaultCurrencyCode() ,waitTimeBetweenCalls = Settings.getDefaultWaitTimeBetweenCallsSeconds()):
+        lotDescriptionsApiCall = rf"https://www.catawiki.com/buyer/api/v3/bidding/lots?ids={LID}&currency_code= {currencyCode}"
+        return json.loads(Browser.load_bs4(lotDescriptionsApiCall, delayTimeSeconds=waitTimeBetweenCalls).text)
+
 class SeleniumBrowser():
 
     def __init__(self):
@@ -116,8 +119,12 @@ class SeleniumBrowser():
         ).click()
 
     @staticmethod
+    def getAuctionURL(LID):
+        return f"https://www.catawiki.com/en/l/{LID}"
+
+    @staticmethod
     def getClosedAuctionSoup(LID):
-        requestUrl = f"https://www.catawiki.com/en/l/{LID}"
+        requestUrl = SeleniumBrowser.getAuctionURL(LID)
         driver = SeleniumBrowser.getEdgedriver()
         driver.get(requestUrl)
 
@@ -151,18 +158,16 @@ class SeleniumBrowser():
 
     @staticmethod
     def getActiveAuctionSoup(LID):
-        requestUrl = f"https://www.catawiki.com/en/l/{LID}"
-        soup = Browser.load_bs4(requestUrl, "lxml")
+        requestUrl = SeleniumBrowser.getAuctionURL(LID)
+        driver = SeleniumBrowser.getEdgedriver()
+        driver.get(requestUrl)
+        SeleniumBrowser.declinceCookies(driver)
+        WebDriverWait(driver,10)
+        soup = bs4.BeautifulSoup(driver.page_source)
         return soup
 
-class SpecsApi(Api):
-    def __init__(self):
-        super(SpecsApi, self)()
 
-    @staticmethod
-    def getRequestUrl(LID):
-        requestUrl = f"https://www.catawiki.com/en/l/{LID}"
-        return requestUrl
+
 
 
 

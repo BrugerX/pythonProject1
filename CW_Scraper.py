@@ -1,5 +1,5 @@
 import Browser
-from webscrapingUtil import maxIntElements,getLIDFromLink
+from utility.webscrapingUtil import maxIntElements,getLIDFromURL
 
 class MagazineOverview:
 
@@ -31,7 +31,7 @@ class MagazineOverview:
         LIDs = []
         for card in lotCards:
             cardURL = card["href"]
-            LIDs += [getLIDFromLink(cardURL)]
+            LIDs += [getLIDFromURL(cardURL)]
         return LIDs
 
     def __iter__(self):
@@ -46,9 +46,15 @@ class MagazineOverview:
 
         return resultOfNext
 
-
+    """
+    
+    @:return Return a list of LIDs of the given page
+    """
     def __getitem__(self, item):
         return self.get_lids_from_page(item)
+
+    def __len__(self):
+        return self.nrActivePages
 
 
 if __name__ == "__main__":
