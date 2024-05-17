@@ -99,7 +99,7 @@ class LotApi(Api):
 
     @staticmethod
     def getLotDescription(LID, currencyCode = Settings.getDefaultCurrencyCode() ,waitTimeBetweenCalls = Settings.getDefaultWaitTimeBetweenCallsSeconds()):
-        lotDescriptionsApiCall = rf"https://www.catawiki.com/buyer/api/v3/bidding/lots?ids={LID}&currency_code= {currencyCode}"
+        lotDescriptionsApiCall = rf"https://www.catawiki.com/buyer/api/v3/bidding/lots?ids={LID}&currency_code={currencyCode}"
         return json.loads(Browser.load_bs4(lotDescriptionsApiCall, delayTimeSeconds=waitTimeBetweenCalls).text)
 
 class SeleniumBrowser():

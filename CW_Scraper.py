@@ -1,6 +1,7 @@
 import Browser
 from utility.webscrapingUtil import maxIntElements,getLIDFromURL
 
+
 class MagazineOverview:
 
     def __init__(self,category,delaySeconds = 1):

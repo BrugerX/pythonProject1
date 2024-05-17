@@ -9,12 +9,11 @@ from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-import Browser
 import bs4
 
-from Browser import Browser,BidApi,ShippingApi,ImageApi,SpecsApi,SeleniumBrowser
+from Browser import Browser,BidApi,ShippingApi,ImageApi,SeleniumBrowser, LotApi
 from Settings import Settings
-from utility.webscrapingUtil import turnDecimalNumberIntoInt,multipleReplaceReGeX
+from utility.webscrapingUtil import multipleReplaceReGeX,getTimeStamp
 import pandas as pd
 
 
@@ -46,16 +45,18 @@ class LotData(ABC):
     def __init__(self, LID: str):
         self.LID = LID
         self.dataRows = []
+
+
         #We start at -1, because if we start at 0 it fucks up and ends the iteration 1 iteration too soon - do the maths in "__next__"
         self.currentDataRowNr = -1
-        self.nrDataRows = self.getNrDataRows()
+
 
     @abstractmethod
     def getDataRows(self):
         return list(self.dataRows)
 
-    def getNrDataRows(self):
-        return len(self.dataRows)
+    def setNrDataRows(self):
+        self.nrDataRows = len(self.dataRows)
 
     def __str__(self):
         printStr = ""
@@ -70,10 +71,10 @@ class LotData(ABC):
     def __next__(self):
         self.currentDataRowNr += 1
 
-        if(self.currentDataRowNr>self.nrDataRows):
+        if(self.currentDataRowNr>=self.nrDataRows):
             raise StopIteration
 
-        resultOfNext = self.dataRows[self.currentDataRowNr]
+        resultOfNext = self.getDataRows()[self.currentDataRowNr]
 
         #We require our dataRows to be either dataRows with dataDicts or outright dicts
         if(isinstance(resultOfNext,DataRow)):
@@ -107,15 +108,18 @@ class ScrapingBasedLotData(LotData):
 
 class BidData(LotData):
 
-    def __init__(self, LID: str, currencyCode=Settings.getDefaultCurrencyCode()):
+    def __init__(self, LID: str, timeStamp, currencyCode=Settings.getDefaultCurrencyCode()):
         super().__init__(LID)
         self.currencyCode = currencyCode
+        self.timeStamp = timeStamp
         self.finalBidDict = json.loads(BidApi.getLatestBid(LID).text)["lots"][0]
         self.allBidsDicts = json.loads(BidApi.getBids(LID,self.currencyCode).text)["bids"]
 
 
         for bidDict in self.allBidsDicts:
-            self.dataRows += [BidRow(self.LID,bidDict,self.finalBidDict)]
+            self.dataRows += [BidRow(self.LID,bidDict,self.finalBidDict,self.timeStamp)]
+
+        self.setNrDataRows()
 
     def getDataRows(self):
         return self.dataRows
@@ -133,7 +137,7 @@ Takes those two arguments and turns its dataDict into a single row in the BidSQL
 """
 class BidRow(DataRow):
 
-    def __init__(self, LID: str, bidDict, finalBidsDict):
+    def __init__(self, LID: str, bidDict, finalBidsDict,timestamp):
         super().__init__(LID)
 
         self.bidDict = bidDict
@@ -198,6 +202,7 @@ class BidRow(DataRow):
 
         self.dataDict["bidTimeStamp"] = timeStamp
         self.dataDict["explanationType"] = explanationType
+        self.dataDict["scraping_timestamp"] = timeStamp
 
     def getDataDict(self):
         return self.dataDict
@@ -215,6 +220,7 @@ class ShippingData(LotData):
         self.waitBetweenCallsSeconds = waitBetweenCallsSeconds
         self.defaultCurrencyCode = defaultCurrencyCode
 
+
         self.paymentRows = []
         jsonData = ShippingApi.getShippingAndPaymentInformation(LID)
 
@@ -223,6 +229,7 @@ class ShippingData(LotData):
         for countryCode in self.countryCodes:
             self.dataRows += [ShippingRow(self.LID,countryCode,self.defaultCurrencyCode)]
 
+        self.setNrDataRows()
 
     def extractCountryCodes(self,jsonData):
         countryCodes = set()
@@ -329,6 +336,8 @@ class ImageData(LotData):
                 for size in imageDict.keys():
                     self.dataRows += [ImageRow(self.LID,counter,type,imageDict[size],size)]
 
+        self.setNrDataRows()
+
     def getDataRows(self):
         return self.dataRows
 
@@ -362,10 +371,13 @@ class ImageRow(DataRow):
 
 class SpecData(ScrapingBasedLotData):
 
-    def __init__(self,LID,isClosed):
-        super(SpecData, self).__init__(LID,isClosed)
+    def __init__(self,LID,lotSoup):
+        super(SpecData, self).__init__(LID,lotSoup)
         self.dataRows = self.getSpecsFromSoup(self.lotSoup)
+        self.setNrDataRows()
 
+    def setNrDataRows(self):
+        self.nrDataRows = len([self.dataRows])
     def getDataRows(self):
         return [self.dataRows]
 
@@ -383,23 +395,18 @@ class SpecData(ScrapingBasedLotData):
 
 class AuctionData(ScrapingBasedLotData):
 
-    def __init__(self,LID,isClosed):
-        super(AuctionData, self).__init__(LID,isClosed)
+    def __init__(self,LID,lotSoup,timeStamp):
+        super(AuctionData, self).__init__(LID,lotSoup)
 
         #Regex patterns
         #TODO: Make a Regex object?
+        self.timeStamp = timeStamp
         self.euroNumberPattern = "€([0-9])+(,([0-9])+)?"  # Pattern for € 8,000
         self.expertEstimatePattern = re.compile(f"expertestimate{self.euroNumberPattern}-{self.euroNumberPattern}")
 
-        self.dataRows = None
+        self.dataRows = dict()
 
 
-    def getAuctionDataFromSoup(self,soup):
-
-        spans = soup.find_all("span")
-        (e1,e2) = self.findExpertEstimate(spans)
-
-        self.dataRows = {"expert_estimate_min":e1,"expert_estimate_max":e2}
 
     """
 
@@ -427,8 +434,9 @@ class AuctionData(ScrapingBasedLotData):
     def findExpertEstimate(self,spans):
 
         #Find the span with the expert estimate text
-        for span in spans:
+        for idx,span in enumerate(spans):
             spanParentText = span.find_parent().text
+
             # TODO: The below thing is O(3n) = O(n), maybe there is a faster way where we don't have to turn it lowercase and remove white spaces first?
             sanitizedParentText = "".join(spanParentText.split()).lower()  # Lowercase without spaces between
 
@@ -437,7 +445,37 @@ class AuctionData(ScrapingBasedLotData):
                 #We have now found the proper span
                 return self.extractExpertEstimateFromText(sanitizedParentText)
 
-            raise RuntimeError(f"Didn't find expert estimate in the list of spans {spans}")
+        raise RuntimeError(f"Didn't find expert estimate in the list of spans, got to index {idx} \n {spans}")
+
+    def scrapeSoup(self,soup):
+
+        spans = soup.find_all("span")
+        (e1,e2) = self.findExpertEstimate(spans)
+        self.dataRows["expert_estimate_min"] = e1
+        self.dataRows["expert_estimate_max"] = e2
+
+    def getAuctionData(self):
+        self.scrapeSoup(self.lotSoup)
+
+        #The API result also contains metadata
+        lotAPIResult = LotApi.getLotDescription(self.LID)["lots"][0]
+        
+        self.dataRows["is_closed_at_scraping"] = lotAPIResult["closed"]
+        self.dataRows["is_buy_now_available"] = lotAPIResult["is_buy_now_available"]
+        self.dataRows["bidding_start_timestamp"] = lotAPIResult["bidding_start_time"]
+        self.dataRows["bidding_close_timestamp"] = lotAPIResult["bidding_end_time"]
+        self.dataRows["is_reserve_price_met"] = lotAPIResult["reserve_price_met"]
+        self.dataRows["favourite_count"] = lotAPIResult["favorite_count"]
+        self.dataRows["AID"] = lotAPIResult["auction_id"]
+
+
+        self.dataRows["scraping_timestamp"] = self.timeStamp
+
+        self.setNrDataRows()
+
+    def setNrDataRows(self):
+        self.nrDataRows = len([self.dataRows])
+
 
     def getDataRows(self):
         return [self.dataRows]
@@ -449,25 +487,28 @@ NOTE: dataRows is not a list but a dict in the case of AllLotData
 """
 class ALlLotData(LotData):
 
-    def __init__(self,LID):
+    def __init__(self, LID):
+        super().__init__(LID)
         self.LID = LID
         self.isClosed = None
         self.lotSoup = None
-        self.bidData = self.imageData = self.shippingData = None
-        self.timeStamp = time.time()
+        self.bidData = self.imageData = self.shippingData = self.auctionData = self.specData = None
+        self.metaData = dict()
+        self.timeStamp = getTimeStamp()
         self.errorsProcessing = []
         self.URLUsed = SeleniumBrowser.getAuctionURL(self.LID)
 
+        self.setNrDataRows()
 
 
     def getAPIBasedData(self):
         #TODO: Implement proper exception calling and handling within the various LotData objects
         try:
-            self.bidData = self.getBidData(self.LID)
+            self.bidData = self.getBidData(self.LID,self.timeStamp)
             self.imageData = self.getImageData(self.LID)
             self.shippingData = self.getShippingData(self.LID)
         except Exception as e:
-            print(e.with_traceback())
+            print(f"Encountered error: {e} \n while getting API based data")
             self.errorsProcessing += [e]
 
     def getScrapingBasedData(self):
@@ -476,30 +517,45 @@ class ALlLotData(LotData):
             raise RuntimeError("Lot soup not yet scraped properly")
 
         """Scraping based lotDatas need to be given the soup in order to minimize the amount of times we need to instantiate the webbrowser"""
+        self.auctionData = self.getAuctioNData(self.LID, self.lotSoup, self.timeStamp)
         self.specData = self.getSpecData(self.LID,self.lotSoup)
-        self.auctionData = self.getAuctioNData(self.LID,self.lotSoup)
+
 
     def getDataRows(self):
+        return [self.dataRows]
+    def composeDataRows(self):
 
         self.getAPIBasedData()
         self.checkIfIsClosed()
         self.getLotSoup()
 
         self.getScrapingBasedData()
+        self.composeMetaData()
 
-        self.dataRows = {"shippingData":self.shippingData,"specData": self.specData,"bidData":self.bidData,"imageData":self.imageData, "auctionData":self.auctionData,"metaData":self.getMetaData()}
+        self.dataRows = {"shippingData":self.shippingData,"specData": self.specData,"bidData":self.bidData,"imageData":self.imageData, "auctionData":self.auctionData,"metaData":self.metaData}
 
     def checkIfIsClosed(self):
-        if(self.bidData is None):
-            raise RuntimeError("Biddata is not initialized (correctly)")
+    #TODO: Make this dependent on the auctionData instead as for auctions with 0 bids, we get a bad result
 
-        for bidRow in self.bidData:
-            if(bidRow["isFinalBid"]):
-                self.isClosed = True
 
-        self.isClosed = False
+        """If we already have the bid dict we can't their servers
+        if(self.bidData is not None and len(self.bidData) >0):
+            for bidRow in self.bidData:
+                if(bidRow["isFinalBid"]):
+                    self.isClosed = True
+
+                self.isClosed = False
+        else:
+
+        PROBLEM: This doesn't always work due to the lag between when we get bidData and when the auction might've closed.
+        """
+
+        self.isClosed = LotApi.getLotDescription(self.LID)["lots"][0]["closed"]
 
     def getLotSoup(self):
+
+        if(self.isClosed is None):
+            raise RuntimeError("Tried getting lot soup without first determining if it is closed")
 
         if(self.isClosed):
             soup = SeleniumBrowser.getClosedAuctionSoup(self.LID)
@@ -511,23 +567,25 @@ class ALlLotData(LotData):
 
         self.lotSoup = soup
 
-    def getAuctioNData(self,LID,isClosed):
-        return AuctionData(LID,isClosed)
+    def getAuctioNData(self,LID,lotSoup,timeStamp):
+        auctionData = AuctionData(LID,lotSoup,timeStamp)
+        auctionData.getAuctionData()
+        return auctionData
 
     def getShippingData(self,LID):
         return ShippingData(LID)
 
-    def getMetaData(self):
-        return [{"lotURLUsed":self.URLUsed, "errorsProcessing":self.errorsProcessing,"timestampUNIX":self.timeStamp}]
+    def composeMetaData(self):
+        self.metaData = [{"lotURLUsed":self.URLUsed, "errorsProcessing":self.errorsProcessing,"timestampUNIX":self.timeStamp}]
 
-    def getBidData(self,LID):
-        return BidData(LID)
+    def getBidData(self,LID,timeStamp):
+        return BidData(LID,timeStamp)
 
     def getImageData(self,LID):
         return ImageData(LID)
 
-    def getSpecData(self,LID,isClosed):
-        return SpecData(LID,isClosed)
+    def getSpecData(self,LID,lotSoup):
+        return SpecData(LID,lotSoup)
 
     def __getitem__(self, item):
         return self.dataRows[item]
@@ -544,14 +602,11 @@ class ALlLotData(LotData):
 if __name__ == '__main__':
 
     randomLID = 79066981
-    print(ShippingData(randomLID).getDataRows())
-    print(BidData(randomLID).getDataRows())
-    print(ImageData(randomLID).getDataRows())
-
 
     lotData = ALlLotData(randomLID)
+    lotData.composeDataRows()
     for key in lotData.keys():
-        print(f"Current key: {key} \n")
+        print(f"\n Current key: {key} \n")
         drow = lotData[key]
         for row in drow:
             print(row)

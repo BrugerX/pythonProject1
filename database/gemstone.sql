@@ -1,20 +1,28 @@
-CREATE TABLE metadata (
+CREATE TABLE meta_data (
   LID VARCHAR PRIMARY KEY,
   lot_url_used VARCHAR NOT NULL,
   errors_processing VARCHAR[] NOT NULL,
-  scraping_log_UNIX INTEGER[] NOT NULL,
-  when_was_this_processed_UNIX int NOT NULL
+  scraping_timestamp TIMESTAMP WITH TIME ZONE NOT NULL,
+  is_closed BOOLEAN not null
 );
 
-create TABLE auctiondata
+create TABLE auction_data
 (
   LID VARCHAR PRIMARY KEY,
   experts_estimate_min NUMERIC NOT NULL,
-  experts_estimate_max NUMERIC NOT NULL
+  experts_estimate_max NUMERIC NOT NULL,
+  bidding_start_timestamp TIMESTAMP WITH TIME ZONE NOT NULL,
+  bidding_close_timestamp TIMESTAMP WITH TIME ZONE NOT NULL,
+  scraping_timestamp TIMESTAMP WITH TIME ZONE NOT NULL,
+  is_reserve_price_met BOOLEAN,
+  is_closed_at_scraping boolean NOT NULL,
+  favourite_count int,
+  AID VARCHAR, /* Auction ID */
+  is_buy_now_available = BOOLEAN NOT NULL,
   FOREIGN KEY (LID) REFERENCES metadata (LID) ON DELETE CASCADE
 );
 
-create TABLE biddata
+create TABLE bid_data
     (
         LID VARCHAR PRIMARY KEY,
         currencies VARCHAR[] NOT NULL,
@@ -31,6 +39,7 @@ create TABLE biddata
         bidder_name VARCHAR NOT NULL,
         bidder_country_code VARCHAR NOT NULL,
         bid_time_stamp TIMESTAMP WITH TIME ZONE NOT NULL,
+        scraping_timestamp TIMESTAMP WITH TIME ZONE NOT NULL,
         explanation_type text NOT NULL,
         bidder_token varchar NOT NULL
         FOREIGN KEY (LID) REFERENCES metadata (LID) ON DELETE CASCADE

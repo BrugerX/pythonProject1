@@ -5,7 +5,7 @@ class Settings:
 
     @staticmethod
     def getDefaultCurrencyCode():
-        return "USD"
+        return "EUR"
 
     @staticmethod
     def getDefaultCountryCode():
