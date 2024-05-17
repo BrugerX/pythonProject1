@@ -40,6 +40,9 @@ class DataRow(ABC):
     def __getitem__(self, item):
         return self.dataDict[item]
 
+    def keys(self):
+        return self.dataDict.keys()
+
 class LotData(ABC):
 
     def __init__(self, LID: str):
@@ -271,13 +274,13 @@ class ShippingRow(DataRow):
         # Initialize resultDict with default values
         resultDict = {
             "LID": self.LID,
-            "countryCode": countryCode,
-            "countryName": None,
-            "currencyCode": currencyCode,  # Use the passed currency code directly
-            "estimatedDeliveryTimesDaysLower": None,
-            "estimatedDeliveryTimesDaysUpper": None,
+            "country_code": countryCode,
+            "country_name": None,
+            "currency_code": currencyCode,  # Use the passed currency code directly
+            "estimated_delivery_times_days_lower": None,
+            "estimated_delivery_times_days_upper": None,
             "price": None,
-            "combinedShippingAllowed": None
+            "combined_shipping_allowed": None
         }
 
         if 'shipping' in data:
@@ -285,17 +288,17 @@ class ShippingRow(DataRow):
 
             for rate in shippingInfo.get('rates', []):
                 if rate.get('region_code') == countryCode:
-                    resultDict['countryName'] = rate.get('region_name')
+                    resultDict['country_name'] = rate.get('region_name')
                     resultDict['price'] = rate.get('price', 0) / 100  # Convert to correct format
                     break
 
             if 'estimated_delivery_times' in shippingInfo and len(shippingInfo['estimated_delivery_times']) > 0:
-                resultDict['estimatedDeliveryTimesDaysLower'] = shippingInfo['estimated_delivery_times'][0].get(
+                resultDict['estimated_delivery_times_days_lower'] = shippingInfo['estimated_delivery_times'][0].get(
                     'from_days')
-                resultDict['estimatedDeliveryTimesDaysUpper'] = shippingInfo['estimated_delivery_times'][0].get(
+                resultDict['estimated_delivery_times_days_upper'] = shippingInfo['estimated_delivery_times'][0].get(
                     'to_days')
 
-            resultDict['combinedShippingAllowed'] = shippingInfo.get('combined_shipping_allowed')
+            resultDict['combined_shipping_allowed'] = shippingInfo.get('combined_shipping_allowed')
 
         self.dataDict = resultDict
 
@@ -353,7 +356,7 @@ class ImageRow(DataRow):
         self.imageDict["idx"] = idx
         self.imageDict["type"] = type
         self.imageDict["size"] = size
-        self.imageDict["imageFormat"] = self.getFormat(self.imageDict)
+        self.imageDict["image_format"] = self.getFormat(self.imageDict)
 
 
         self.dataDict = copy(self.imageDict)
@@ -374,6 +377,7 @@ class SpecData(ScrapingBasedLotData):
     def __init__(self,LID,lotSoup):
         super(SpecData, self).__init__(LID,lotSoup)
         self.dataRows = self.getSpecsFromSoup(self.lotSoup)
+        self.dataRows["LID"] = LID
         self.setNrDataRows()
 
     def setNrDataRows(self):
@@ -404,7 +408,7 @@ class AuctionData(ScrapingBasedLotData):
         self.euroNumberPattern = "€([0-9])+(,([0-9])+)?"  # Pattern for € 8,000
         self.expertEstimatePattern = re.compile(f"expertestimate{self.euroNumberPattern}-{self.euroNumberPattern}")
 
-        self.dataRows = dict()
+        self.dataRows = {"LID":LID}
 
 
 
@@ -532,7 +536,7 @@ class ALlLotData(LotData):
         self.getScrapingBasedData()
         self.composeMetaData()
 
-        self.dataRows = {"shippingData":self.shippingData,"specData": self.specData,"bidData":self.bidData,"imageData":self.imageData, "auctionData":self.auctionData,"metaData":self.metaData}
+        self.dataRows = {"meta_data":self.metaData,"shipping_data":self.shippingData,"colored_gemstone_specs": self.specData,"bid_data":self.bidData,"image_data":self.imageData, "auction_data":self.auctionData}
 
     def checkIfIsClosed(self):
     #TODO: Make this dependent on the auctionData instead as for auctions with 0 bids, we get a bad result
@@ -576,7 +580,10 @@ class ALlLotData(LotData):
         return ShippingData(LID)
 
     def composeMetaData(self):
-        self.metaData = [{"lotURLUsed":self.URLUsed, "errorsProcessing":self.errorsProcessing,"timestampUNIX":self.timeStamp}]
+        if(self.isClosed is None):
+            raise RuntimeError("isClosed has to be specified! Cannot be null!")
+
+        self.metaData = [{"LID":self.LID,"lot_url_used":self.URLUsed, "errors_processing":self.errorsProcessing, "scraping_timestamp":self.timeStamp ,'is_closed':self.isClosed}]
 
     def getBidData(self,LID,timeStamp):
         return BidData(LID,timeStamp)
