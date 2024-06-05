@@ -48,8 +48,23 @@ class SoupExtractorTests(unittest.TestCase):
         real_experts_estimates = (120000,160000)
         self.assertEqual(real_experts_estimates,soup_extractor_diamonds.getExpertEstimates())
 
+    def test_bid_table(self):
+        closed_LID_diamonds = "84559939"
+        bid_table = EnT.BidsTable("",Browser.BidApi.getBids(closed_LID_diamonds))
+        self.assertIsNone(bid_table.dataframe)
+        dataframe = bid_table.getDataframe()
+
+
+        self.assertTrue(dataframe["id"].is_unique)
+        self.assertTrue(dataframe["amount"].is_unique)
+
+        #Check that the same token and country is used for every name
+        for name in dataframe["name"].unique():
+            self.assertEqual(len(dataframe[dataframe["name"] == name]["token"].unique()),1)
+            self.assertEqual(len(dataframe[dataframe["name"] == name]["country.code"].unique()), 1)
 
     #TODO: Test what happens if experts min and max is equal
+    #TODO: Create a method that generates LIDs from our database to test on a certain percentage
 
 
 

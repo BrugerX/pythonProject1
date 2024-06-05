@@ -2,10 +2,12 @@ import pandas as pd
 import Browser as brws
 import re
 import utility.webscrapingUtil as wbsu
+from abc import ABC,abstractmethod
+import json
 
 class DownloadedData:
 
-    def __init(self,timestamp):
+    def __init__(self,timestamp):
         self.downloaded_timestamp = timestamp
 
 """
@@ -17,11 +19,12 @@ class DownloadedData:
 class SoupExtractor(DownloadedData):
 
     def __init__(self,timestamp,soup):
-        DownloadedData.__init__(timestamp)
+        super().__init__(timestamp)
         self.soup = soup
 
         self.euroNumberPattern = "€([0-9])+(,([0-9])+)?"  # Pattern for € 8,000
         self.expertEstimatePattern = re.compile(f"expertestimate{self.euroNumberPattern}-{self.euroNumberPattern}")
+
 
 
     def getSpecs(self):
@@ -85,5 +88,52 @@ class SoupExtractor(DownloadedData):
             raise RuntimeError(
                 f"Our scraping method for expert's estimates didn't work.\n For the following test: {expertEstSpanText} we got the following estimate min: {estMinMax[0]} and max {estMinMax[1]}")
 
+
+
+class Table(DownloadedData,ABC):
+
+    def __init__(self,timestamp,api_json):
+        super().__init__(timestamp)
+        self.api_json = api_json
+        self.dataframe = None
+
+
+    @abstractmethod
+    def addTimeStampToDF(self):
+        pass
+
+    @abstractmethod
+    def extractDFFromJson(self):
+        pass
+
+    def getDataframe(self):
+
+        if(self.dataframe is None):
+            self.extractDFFromJson()
+
+
+        return self.dataframe
+
+class BidsTable(Table):
+
+    def __init__(self,timestamp,api_json):
+        super().__init__(timestamp,api_json)
+        self.api_json = self.api_json["bids"]
+
+    def addTimeStampToDF(self):
+        self.dataframe["timestamp"] = self.downloaded_timestamp
+
+    def extractDFFromJson(self):
+        #WRITTEN BY CHATGPT
+        df = pd.DataFrame.from_dict(self.api_json)
+
+        bidder_df = pd.json_normalize(df['bidder'])
+
+        # Drop the original nested columns and concatenate the normalized data
+        df = df.drop(columns=['bidder'])
+
+        # Combine the DataFrame with the normalized columns
+        self.dataframe = pd.concat([df, bidder_df], axis=1)
+        self.addTimeStampToDF()
 
 
