@@ -40,6 +40,17 @@ class SoupExtractorTests(unittest.TestCase):
         self.assertEqual(real_experts_estimates_watches,soup_extractor_watches.getExpertEstimates())
         self.assertEqual(real_experts_estimates_diamonds,soup_extractor_diamonds.getExpertEstimates())
 
+    def test_experts_estimate_three_digit_thousands(self):
+        closed_LID_three_digit_diamond = "84642777"
+        soup_diamonds = Browser.SeleniumBrowser.getActiveAuctionSoup(closed_LID_three_digit_diamond)
+        soup_extractor_diamonds = EnT.SoupExtractor("",soup_diamonds)
+
+        real_experts_estimates = (120000,160000)
+        self.assertEqual(real_experts_estimates,soup_extractor_diamonds.getExpertEstimates())
+
+
+    #TODO: Test what happens if experts min and max is equal
+
 
 
 
