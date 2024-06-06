@@ -10,6 +10,7 @@ class SoupExtractorTests(unittest.TestCase):
     """
     The extractor can get specs from two different categories
     """
+    #Specific to these LIDs
     def test_soup_gets_specs_diamonds_watches(self):
         closed_LID_diamonds = "84559939"
         closed_LID_watches = "84654169"
@@ -25,6 +26,7 @@ class SoupExtractorTests(unittest.TestCase):
         real_specs_watches = {'Brand': 'TAG Heuer', 'Case material': 'Steel', 'Condition': 'Worn & in very good condition', 'Diameter/ Width Case': '45 mm', 'Era': 'After 2000', 'Extras': 'Box, Documents, Warranty', 'Gender': 'Men', 'Length watch band': '165 mm', 'Model': 'Connected', 'Movement': 'Quartz', 'Period': '2011-present', 'Reference Number': 'SBG8A10', 'Shipped Insured': 'Yes'}
         self.assertEqual(real_specs_watches,soup_extractor_watches.getSpecs())
 
+    #Specific to these LIDS
     def test_soup_gets_experts_estimate_diamonds_watches(self):
         closed_LID_diamonds = "84559939"
         closed_LID_watches = "84654169"
@@ -64,7 +66,7 @@ class SoupExtractorTests(unittest.TestCase):
             self.assertEqual(len(dataframe[dataframe["name"] == name]["token"].unique()),1)
             self.assertEqual(len(dataframe[dataframe["name"] == name]["country.code"].unique()), 1)
 
-    def test_bid_table(self):
+    def test_bid_table_diamonds(self):
         closed_LID_diamonds = "84559939"
         images_table = EnT.ImagesTable("",Browser.ImageApi.getImageGallery(closed_LID_diamonds))
 
@@ -72,6 +74,36 @@ class SoupExtractorTests(unittest.TestCase):
 
         self.assertTrue(tu.columnsFollowing(img_df,"size",["width","height"]))
         self.assertTrue(tu.columnsFollowing(img_df,"idx",["type"]))
+
+    def test_images_table_multiple_categories(self):
+        closed_LID_diamonds = "84559939"
+        images_table = EnT.ImagesTable("",Browser.ImageApi.getImageGallery(closed_LID_diamonds))
+
+        img_df = images_table.getDataframe()
+
+        self.assertTrue(tu.columnsFollowing(img_df,"size",["width","height"]))
+        self.assertTrue(tu.columnsFollowing(img_df,"idx",["type"]))
+
+        closed_comic_books = "84765561"
+        images_table = EnT.ImagesTable("",Browser.ImageApi.getImageGallery(closed_comic_books))
+
+        img_df = images_table.getDataframe()
+
+        self.assertTrue(tu.columnsFollowing(img_df,"size",["width","height"]))
+        self.assertTrue(tu.columnsFollowing(img_df,"idx",["type"]))
+
+    #Specific to this LID
+    def test_shipping_table_correct_prices(self):
+        closed_LID_diamonds = "84559939"
+        shipping_table = EnT.ShippingTable("",Browser.ShippingApi.getShippingAndPaymentInformation(closed_LID_diamonds))
+
+        shipping_df = shipping_table.getDataframe()
+        count = len(shipping_df[(shipping_df["price"] > 1000) | (shipping_df["price"] < 1)]) #None below 1 and none above 1000 EUR
+
+        self.assertEqual(0,count)
+        # We know the shipping price to DK is 23 EUR for this LID
+        self.assertEqual(23,shipping_df[shipping_df["region_name"] == "Denmark"]["price"].iloc[0])
+
 
     #TODO: Test what happens if experts min and max is equal
     #TODO: Create a method that generates LIDs from our database to test on a certain percentage

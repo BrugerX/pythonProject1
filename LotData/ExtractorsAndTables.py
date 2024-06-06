@@ -169,5 +169,54 @@ class ImagesTable(Table):
         self.dataframe = pd.DataFrame(records)
         self.addTimeStampToDF()
 
+class ShippingTable(Table):
+
+    #Should only be called ONCE and is already being called in extractDFFromJson
+    #We get the prices as 2000 when the real price is 20.00
+    def correctShippingRates(self):
+        self.dataframe["price"] = self.dataframe["price"].apply(lambda x: x/100 )
+    def addTimeStampToDF(self):
+        self.dataframe["timestamp"] = self.downloaded_timestamp
+
+    def extractDFFromJson(self):
+        # Extract the rates data
+        rates = self.api_json["shipping"]["rates"]
+
+        # Extract other relevant information
+        estimated_delivery_times = self.api_json["shipping"]["estimated_delivery_times"]
+        destination_country = self.api_json["shipping"]["destination_country"]
+        combined_shipping_allowed = self.api_json["shipping"]["combined_shipping_allowed"]
+        delivery_methods = self.api_json["shipping"]["delivery_methods"]
+        extra_insurance = self.api_json["shipping"]["extra_insurance"]
+        provider_id = self.api_json["shipping"]["provider_id"]
+        is_pickup_preferable = self.api_json["shipping"]["is_pickup_preferable"]
+        is_pickup_only = self.api_json["shipping"]["is_pickup_only"]
+        pickup_location = self.api_json["shipping"]["pickup_location"]
+
+        # Add these details to each rate entry
+        expanded_rates = []
+        for rate in rates:
+            rate_entry = rate.copy()
+            rate_entry.update({
+                "estimated_delivery_from_days": estimated_delivery_times[0]["from_days"],
+                "estimated_delivery_to_days": estimated_delivery_times[0]["to_days"],
+                "destination_country_name": destination_country["country"]["name"],
+                "destination_country_short_code": destination_country["country"]["short_code"],
+                "combined_shipping_allowed": combined_shipping_allowed,
+                "delivery_methods": ', '.join(delivery_methods),
+                "extra_insurance": extra_insurance,
+                "provider_id": provider_id,
+                "is_pickup_preferable": is_pickup_preferable,
+                "is_pickup_only": is_pickup_only,
+                "pickup_location_country_code": pickup_location["country_code"],
+                "pickup_location_city": pickup_location["city"]
+            })
+            expanded_rates.append(rate_entry)
+
+        # Create a DataFrame
+        self.dataframe = pd.DataFrame(expanded_rates)
+        self.correctShippingRates()
+        self.addTimeStampToDF()
+
 
 
