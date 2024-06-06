@@ -1,6 +1,7 @@
 import unittest
 import LotData.ExtractorsAndTables as EnT
 import Browser
+import TestUtil as tu
 
 class SoupExtractorTests(unittest.TestCase):
 
@@ -62,6 +63,15 @@ class SoupExtractorTests(unittest.TestCase):
         for name in dataframe["name"].unique():
             self.assertEqual(len(dataframe[dataframe["name"] == name]["token"].unique()),1)
             self.assertEqual(len(dataframe[dataframe["name"] == name]["country.code"].unique()), 1)
+
+    def test_bid_table(self):
+        closed_LID_diamonds = "84559939"
+        images_table = EnT.ImagesTable("",Browser.ImageApi.getImageGallery(closed_LID_diamonds))
+
+        img_df = images_table.getDataframe()
+
+        self.assertTrue(tu.columnsFollowing(img_df,"size",["width","height"]))
+        self.assertTrue(tu.columnsFollowing(img_df,"idx",["type"]))
 
     #TODO: Test what happens if experts min and max is equal
     #TODO: Create a method that generates LIDs from our database to test on a certain percentage

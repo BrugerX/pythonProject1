@@ -55,12 +55,12 @@ class BidApi(Api):
     @staticmethod
     def getBids(LID,currencyCode = Settings.getDefaultCurrencyCode()):
         bidApiCallUrl = fr"https://www.catawiki.com/buyer/api/v3/lots/{LID}/bids?currency_code={currencyCode}&per_page=200"
-        return Browser.load_bs4(bidApiCallUrl)
+        return json.loads(Browser.load_bs4(bidApiCallUrl).text)
 
     @staticmethod
     def getLatestBid(LID):
         latestBidApiCallUrl = fr"https://www.catawiki.com/buyer/api/v3/bidding/lots?ids={LID}"
-        return Browser.load_bs4(latestBidApiCallUrl)
+        return json.loads(Browser.load_bs4(latestBidApiCallUrl).text)
 
 
 class ShippingApi(Api):
@@ -134,7 +134,7 @@ class SeleniumBrowser():
             SeleniumBrowser.declinceCookies(driver)
 
             try:
-                view_lot_btn = WebDriverWait(driver, 10).until(
+                view_lot_btn = WebDriverWait(driver, 5).until(
                     EC.presence_of_element_located((By.CLASS_NAME, "lot-closed-banner__view-this-lot"))
                 )
                 driver.execute_script("arguments[0].click();", view_lot_btn)
@@ -142,7 +142,7 @@ class SeleniumBrowser():
             except TimeoutException:
 
                 # If "View this lot" button does not exist, then find the "Show all info" button
-                show_all_info_btn = WebDriverWait(driver, 10).until(
+                show_all_info_btn = WebDriverWait(driver, 5).until(
                     EC.presence_of_element_located((By.CSS_SELECTOR, "[data-testid='closed-odp-show-all-info']"))
                 )
                 # Use JavaScript to click the "Show all info" button
@@ -162,7 +162,7 @@ class SeleniumBrowser():
         driver = SeleniumBrowser.getEdgedriver()
         driver.get(requestUrl)
         SeleniumBrowser.declinceCookies(driver)
-        WebDriverWait(driver,10)
+        WebDriverWait(driver,5)
         soup = bs4.BeautifulSoup(driver.page_source)
         return soup
 

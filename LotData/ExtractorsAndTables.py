@@ -137,3 +137,37 @@ class BidsTable(Table):
         self.addTimeStampToDF()
 
 
+class ImagesTable(Table):
+
+    def __init__(self,timestamp,api_json):
+        super().__init__(timestamp,api_json)
+
+    def addTimeStampToDF(self):
+        self.dataframe["timestamp"] = self.downloaded_timestamp
+
+    def extractDFFromJson(self):
+        #WRITTEN BY CHATGPT
+        records = []
+        index = 0
+        for entry in self.api_json:
+            entry_type = entry['type']
+            for image_set in entry['images']:
+                for size, details in image_set.items():
+                    record = {
+                        'idx': index,
+                        'type': entry_type,
+                        'size': size,
+                        'url': details['url'],
+                        'orientation': details['orientation'],
+                        'width': details['width'],
+                        'height': details['height']
+                    }
+                    records.append(record)
+                index += 1
+
+        # Create dataframe
+        self.dataframe = pd.DataFrame(records)
+        self.addTimeStampToDF()
+
+
+
