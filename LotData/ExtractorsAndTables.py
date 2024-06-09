@@ -4,7 +4,7 @@ import re
 import utility.webscrapingUtil as wbsu
 from abc import ABC,abstractmethod
 import json
-from LotDataSettings import ReservePriceEnum
+from LotData.LotDataSettings import ReservePriceEnum
 
 
 class DownloadedData:
@@ -135,7 +135,7 @@ class LatestBidTable(Table):
         self.addTimeStampToDF()
 
     def addTimeStampToDF(self):
-        self.dataframe["latest_bids_timestamp"] = self.getDownloadedTimestamp()
+        self.dataframe["latest_bid_timestamp"] = self.getDownloadedTimestamp()
 
     def getFavoriteCount(self):
         self.extractDataframeIfDoesntExist()
