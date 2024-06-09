@@ -75,7 +75,7 @@ class BidRecord(Record):
 
 
     def recordTimestampDownloadedData(self):
-        self.record_dataframe["lbid_timestamp"] = self.latest_bid_table.getDownloadedTimestamp()
+        self.record_dataframe["latest_bid_timestamp"] = self.latest_bid_table.getDownloadedTimestamp()
 
 
 
