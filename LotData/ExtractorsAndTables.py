@@ -4,11 +4,16 @@ import re
 import utility.webscrapingUtil as wbsu
 from abc import ABC,abstractmethod
 import json
+from LotDataSettings import ReservePriceEnum
+
 
 class DownloadedData:
 
     def __init__(self,timestamp):
         self.downloaded_timestamp = timestamp
+
+    def getDownloadedTimestamp(self):
+        return self.downloaded_timestamp
 
 """
 
@@ -106,45 +111,46 @@ class Table(DownloadedData,ABC):
     def extractDFFromJson(self):
         pass
 
-    def getDataframe(self):
+    def getDataframeCopy(self):
+        self.extractDataframeIfDoesntExist()
 
+        return self.dataframe.copy()
+
+    def extractDataframeIfDoesntExist(self):
         if(self.dataframe is None):
             self.extractDFFromJson()
-
-
-        return self.dataframe
 
 class LatestBidTable(Table):
 
     def __init__(self,timestamp,api_json):
         super().__init__(timestamp,api_json)
+        self.api_json = self.api_json
 
     def extractDFFromJson(self):
         # Extracting bid amounts and currencies dynamically
-        lots_dict = self.api_json["lots"][0]
-
-        bid_amount = list(lots_dict['current_bid_amount'].values())
-        currencies = list(lots_dict['current_bid_amount'].keys())
-
-        # Creating the dataframe
-        self.dataframe = pd.DataFrame({
-            "highest_bidder_token": [lots_dict["highest_bidder_token"]],
-            "winner_token": [lots_dict["winner_token"]],
-            "bid_amount": [bid_amount],
-            "currencies": [currencies],
-            "bidding_start_time": [lots_dict["bidding_start_time"]],
-            "bidding_end_time": [lots_dict["bidding_end_time"]],
-            "reserve_price_met": [lots_dict["reserve_price_met"]],
-            "favorite_count": [lots_dict["favorite_count"]],
-            "closed": [lots_dict["closed"]],
-            "id": [lots_dict["id"]],
-            "auction_id": [lots_dict["auction_id"]],
-            "is_buy_now_available": [lots_dict["is_buy_now_available"]],
-            "realtime_channel": [lots_dict["realtime_channel"]]
-        })
+        df = pd.DataFrame.from_dict(self.api_json["lots"][0])
+        #When we use the from_dict our index becomes the currency codes.
+        df.index.name = "currency"
+        self.dataframe = df.reset_index()
         self.addTimeStampToDF()
+
     def addTimeStampToDF(self):
-        self.dataframe["timestamp"] = self.downloaded_timestamp
+        self.dataframe["latest_bids_timestamp"] = self.getDownloadedTimestamp()
+
+    def getFavoriteCount(self):
+        self.extractDataframeIfDoesntExist()
+        return self.dataframe["favorite_count"][0]
+
+    def getIsClosed(self):
+        self.extractDataframeIfDoesntExist()
+        return self.dataframe["closed"][0]
+
+    #There is a special case of reserve price almost being met, we would like to handle
+    def getReservePriceMet(self):
+        self.extractDataframeIfDoesntExist()
+        reserve_met = self.dataframe["reserve_price_met"][0]
+        return ReservePriceEnum.getReservePriceCode(reserve_met)
+
 
 class BidsTable(Table):
 
@@ -153,7 +159,7 @@ class BidsTable(Table):
         self.api_json = self.api_json["bids"]
 
     def addTimeStampToDF(self):
-        self.dataframe["timestamp"] = self.downloaded_timestamp
+        self.dataframe["bids_timestamp"] = self.getDownloadedTimestamp()
 
     def extractDFFromJson(self):
         #WRITTEN BY CHATGPT
@@ -166,6 +172,7 @@ class BidsTable(Table):
 
         # Combine the DataFrame with the normalized columns
         self.dataframe = pd.concat([df, bidder_df], axis=1)
+        self.dataframe.rename(columns={"id":"BID"},inplace=True)
         self.addTimeStampToDF()
 
 
@@ -175,7 +182,7 @@ class ImagesTable(Table):
         super().__init__(timestamp,api_json)
 
     def addTimeStampToDF(self):
-        self.dataframe["timestamp"] = self.downloaded_timestamp
+        self.dataframe["images_timestamp"] = self.getDownloadedTimestamp()
 
     def extractDFFromJson(self):
         #WRITTEN BY CHATGPT
@@ -208,7 +215,7 @@ class ShippingTable(Table):
     def correctShippingRates(self):
         self.dataframe["price"] = self.dataframe["price"].apply(lambda x: x/100 )
     def addTimeStampToDF(self):
-        self.dataframe["timestamp"] = self.downloaded_timestamp
+        self.dataframe["shipping_timestamp"] = self.getDownloadedTimestamp()
 
     def extractDFFromJson(self):
         # Extract the rates data
@@ -251,4 +258,14 @@ class ShippingTable(Table):
         self.addTimeStampToDF()
 
 
+class MetadataExtractor(DownloadedData):
+
+    def __init__(self,LID,timestamp,category_int,category_name):
+        super().__init__(timestamp)
+        self.LID = LID
+        self.category_int = category_int
+        self.categoy_name = category_name
+
+    def getLID(self):
+        return self.LID
 

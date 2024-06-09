@@ -58,4 +58,6 @@ def multipleReplaceReGeX(replacements, text):
 def getTimeStamp():
     return datetime.now(timezone.utc)
 
+def getRandomClosedLID(category = None):
+    return "84559939"
 

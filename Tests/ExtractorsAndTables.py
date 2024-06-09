@@ -55,7 +55,7 @@ class SoupExtractorTests(unittest.TestCase):
         closed_LID_diamonds = "84559939"
         bid_table = EnT.BidsTable("",Browser.BidApi.getBids(closed_LID_diamonds))
         self.assertIsNone(bid_table.dataframe)
-        dataframe = bid_table.getDataframe()
+        dataframe = bid_table.getDataframeCopy()
 
 
         self.assertTrue(dataframe["id"].is_unique)
@@ -70,7 +70,7 @@ class SoupExtractorTests(unittest.TestCase):
         closed_LID_diamonds = "84559939"
         images_table = EnT.ImagesTable("",Browser.ImageApi.getImageGallery(closed_LID_diamonds))
 
-        img_df = images_table.getDataframe()
+        img_df = images_table.getDataframeCopy()
 
         self.assertTrue(tu.columnsFollowing(img_df,"size",["width","height"]))
         self.assertTrue(tu.columnsFollowing(img_df,"idx",["type"]))
@@ -79,7 +79,7 @@ class SoupExtractorTests(unittest.TestCase):
         closed_LID_diamonds = "84559939"
         images_table = EnT.ImagesTable("",Browser.ImageApi.getImageGallery(closed_LID_diamonds))
 
-        img_df = images_table.getDataframe()
+        img_df = images_table.getDataframeCopy()
 
         self.assertTrue(tu.columnsFollowing(img_df,"size",["width","height"]))
         self.assertTrue(tu.columnsFollowing(img_df,"idx",["type"]))
@@ -87,7 +87,7 @@ class SoupExtractorTests(unittest.TestCase):
         closed_comic_books = "84765561"
         images_table = EnT.ImagesTable("",Browser.ImageApi.getImageGallery(closed_comic_books))
 
-        img_df = images_table.getDataframe()
+        img_df = images_table.getDataframeCopy()
 
         self.assertTrue(tu.columnsFollowing(img_df,"size",["width","height"]))
         self.assertTrue(tu.columnsFollowing(img_df,"idx",["type"]))
@@ -97,7 +97,7 @@ class SoupExtractorTests(unittest.TestCase):
         closed_LID_diamonds = "84559939"
         shipping_table = EnT.ShippingTable("",Browser.ShippingApi.getShippingAndPaymentInformation(closed_LID_diamonds))
 
-        shipping_df = shipping_table.getDataframe()
+        shipping_df = shipping_table.getDataframeCopy()
         count = len(shipping_df[(shipping_df["price"] > 1000) | (shipping_df["price"] < 1)]) #None below 1 and none above 1000 EUR
 
         self.assertEqual(0,count)
