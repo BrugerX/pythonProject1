@@ -114,6 +114,38 @@ class Table(DownloadedData,ABC):
 
         return self.dataframe
 
+class LatestBidTable(Table):
+
+    def __init__(self,timestamp,api_json):
+        super().__init__(timestamp,api_json)
+
+    def extractDFFromJson(self):
+        # Extracting bid amounts and currencies dynamically
+        lots_dict = self.api_json["lots"][0]
+
+        bid_amount = list(lots_dict['current_bid_amount'].values())
+        currencies = list(lots_dict['current_bid_amount'].keys())
+
+        # Creating the dataframe
+        self.dataframe = pd.DataFrame({
+            "highest_bidder_token": [lots_dict["highest_bidder_token"]],
+            "winner_token": [lots_dict["winner_token"]],
+            "bid_amount": [bid_amount],
+            "currencies": [currencies],
+            "bidding_start_time": [lots_dict["bidding_start_time"]],
+            "bidding_end_time": [lots_dict["bidding_end_time"]],
+            "reserve_price_met": [lots_dict["reserve_price_met"]],
+            "favorite_count": [lots_dict["favorite_count"]],
+            "closed": [lots_dict["closed"]],
+            "id": [lots_dict["id"]],
+            "auction_id": [lots_dict["auction_id"]],
+            "is_buy_now_available": [lots_dict["is_buy_now_available"]],
+            "realtime_channel": [lots_dict["realtime_channel"]]
+        })
+        self.addTimeStampToDF()
+    def addTimeStampToDF(self):
+        self.dataframe["timestamp"] = self.downloaded_timestamp
+
 class BidsTable(Table):
 
     def __init__(self,timestamp,api_json):
