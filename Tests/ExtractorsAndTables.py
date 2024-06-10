@@ -1,7 +1,8 @@
 import unittest
 import LotData.ExtractorsAndTables as EnT
 import Browser
-import TestUtil as tu
+from utility import TestUtil as tu
+
 
 class SoupExtractorTests(unittest.TestCase):
 

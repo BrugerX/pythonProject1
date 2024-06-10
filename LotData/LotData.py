@@ -99,6 +99,27 @@ class ImageRecord(Record):
         return ["meta_data", "image_data"]
 
 
+class ShippingRecord(Record):
+
+    def __init__(self,downloadedData):
+        super().__init__()
+        self.meta_data = downloadedData["meta_data"]
+        self.shipping_data = downloadedData["shipping_data"]
+
+    def composeRecordForDatabase(self):
+        self.record_dataframe = self.shipping_data.getDataframeCopy()
+        self.record_dataframe["LID"] = self.meta_data.getLID()
+
+    def getRecordForDatabaseCopy(self):
+        self.composeRecordIfNotExists()
+        return self.record_dataframe.copy()
+
+    def recordTimestampDownloadedData(self):
+        pass
+
+    def getRequiredDownloadedData(self):
+        return ["meta_data", "shipping_data"]
+
 
 
 

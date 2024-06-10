@@ -2,7 +2,8 @@ import unittest
 
 import pandas as pd
 
-import TestUtil as tu
+from utility import TestUtil as tu
+
 
 class MyTestCase(unittest.TestCase):
 
