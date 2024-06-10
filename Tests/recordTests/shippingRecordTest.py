@@ -7,8 +7,9 @@ import utility.webscrapingUtil as wut
 
 class ClosedDiamondShipping(unittest.TestCase):
     closed_LID_diamonds = "84559939"
+    shipping_timestamp = wut.getTimeStamp()
     meta_data = EnT.MetadataExtractor(closed_LID_diamonds,wut.getTimeStamp(),715,"Diamonds")
-    shipping_table = EnT.ShippingTable("",Browser.ShippingApi.getShippingAndPaymentInformation(closed_LID_diamonds))
+    shipping_table = EnT.ShippingTable(shipping_timestamp,Browser.ShippingApi.getShippingAndPaymentInformation(closed_LID_diamonds))
     shipping_record = ld.ShippingRecord({"shipping_data":shipping_table,"meta_data":meta_data})
 
 
@@ -20,8 +21,6 @@ class ClosedDiamondShipping(unittest.TestCase):
     
     """
     def test_shipping_record_correct_prices(self):
-
-
         shipping_df = self.shipping_record.getRecordForDatabaseCopy()
         count = len(shipping_df[(shipping_df["price"] > 1000) | (shipping_df["price"] < 1)]) #None below 1 and none above 1000 EUR
 
@@ -35,7 +34,10 @@ class ClosedDiamondShipping(unittest.TestCase):
         self.assertEqual(self.closed_LID_diamonds, shipping_df["LID"].iloc[0])
         self.assertEqual(1,len(shipping_df["LID"].unique()))
 
-
+    def test_timestamp(self):
+        shipping_df = self.shipping_record.getRecordForDatabaseCopy()
+        self.assertEqual(self.shipping_timestamp, shipping_df["LID"].iloc[0])
+        self.assertEqual(1, len(shipping_df["LID"].unique()))
 
 
 if __name__ == '__main__':

@@ -121,16 +121,16 @@ import Browser
 import re
 import time
 #%% md
+if __name__ == "__main__":
+    magOverview = MagazineOverview(599)
+    firstPageLIDs = magOverview[0]
+    #randomLID = firstPageLIDs[0]
+    randomLID = 81889801
 
-magOverview = MagazineOverview(599)
-firstPageLIDs = magOverview[0]
-#randomLID = firstPageLIDs[0]
-randomLID = 81889801
-
-lotData = ALlLotData(randomLID)
-lotData.composeDataRows()
+    lotData = ALlLotData(randomLID)
+    lotData.composeDataRows()
 
 
-dbm = DatabaseManager("DBUSER","DBPASS","DBNAME")
-dbm.processLotData(lotData)
-print(lotData)
+    dbm = DatabaseManager("DBUSER","DBPASS","DBNAME")
+    dbm.processLotData(lotData)
+    print(lotData)

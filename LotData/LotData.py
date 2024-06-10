@@ -8,6 +8,7 @@ class Record(ABC):
         self.required_downloaded_data = self.getRequiredDownloadedData()
         self.record_dataframe = None
 
+
     @abstractmethod
     def getRequiredDownloadedData(self):
         return None
@@ -120,6 +121,28 @@ class ShippingRecord(Record):
     def getRequiredDownloadedData(self):
         return ["meta_data", "shipping_data"]
 
+
+
+
+class FavoriteHistory(Record):
+
+    def __init__(self,downloadedData):
+        super().__init__()
+        self.meta_data = downloadedData["meta_data"]
+        self.latest_bid_data = downloadedData["latest_bid_data"]
+
+    def composeRecordForDatabase(self):
+        self.record_dataframe = pd.DataFrame.from_dict({"LID":[self.meta_data.getLID()],"favorite_count":[self.latest_bid_data.getFavoriteCount()]})
+        self.recordTimestampDownloadedData()
+    def getRecordForDatabaseCopy(self):
+        self.composeRecordIfNotExists()
+        return self.record_dataframe.copy()
+
+    def recordTimestampDownloadedData(self):
+        self.record_dataframe["latest_bid_timestamp"] = self.latest_bid_data.getDownloadedTimestamp()
+
+    def getRequiredDownloadedData(self):
+        return ["meta_data", "latest_bid_data"]
 
 
 

@@ -128,8 +128,6 @@ class BidData(LotData):
         return self.dataRows
 
 
-
-
 """
 
 @:arg bidDict: A single dict from the history of bids.
