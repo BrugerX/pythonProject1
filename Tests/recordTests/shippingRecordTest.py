@@ -36,8 +36,8 @@ class ClosedDiamondShipping(unittest.TestCase):
 
     def test_timestamp(self):
         shipping_df = self.shipping_record.getRecordForDatabaseCopy()
-        self.assertEqual(self.shipping_timestamp, shipping_df["LID"].iloc[0])
-        self.assertEqual(1, len(shipping_df["LID"].unique()))
+        self.assertEqual(self.shipping_timestamp, shipping_df["shipping_timestamp"].iloc[0])
+        self.assertEqual(1, len(shipping_df["shipping_timestamp"].unique()))
 
 
 if __name__ == '__main__':

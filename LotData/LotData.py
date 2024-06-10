@@ -146,3 +146,23 @@ class FavoriteHistory(Record):
 
 
 
+
+class AuctionHistory(Record):
+
+    def __init__(self,downloadedData):
+        super().__init__()
+        self.meta_data = downloadedData["meta_data"]
+        self.latest_bid_data = downloadedData["latest_bid_data"]
+
+    def composeRecordForDatabase(self):
+        self.record_dataframe = pd.DataFrame.from_dict({"LID":[self.meta_data.getLID()],"is_closed":[self.latest_bid_data.getIsClosed()],"time_to_close":[self.latest_bid_data.getTimeToClose()]})
+        self.recordTimestampDownloadedData()
+    def getRecordForDatabaseCopy(self):
+        self.composeRecordIfNotExists()
+        return self.record_dataframe.copy()
+
+    def recordTimestampDownloadedData(self):
+        self.record_dataframe["latest_bid_timestamp"] = self.latest_bid_data.getDownloadedTimestamp()
+
+    def getRequiredDownloadedData(self):
+        return ["meta_data", "latest_bid_data"]

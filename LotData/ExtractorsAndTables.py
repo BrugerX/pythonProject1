@@ -145,6 +145,10 @@ class LatestBidTable(Table):
         self.extractDataframeIfDoesntExist()
         return self.dataframe["closed"][0]
 
+    def getTimeToClose(self):
+        self.extractDataframeIfDoesntExist()
+        return self.dataframe["bidding_end_time"][0]
+
     #There is a special case of reserve price almost being met, we would like to handle
     def getReservePriceMet(self):
         self.extractDataframeIfDoesntExist()
