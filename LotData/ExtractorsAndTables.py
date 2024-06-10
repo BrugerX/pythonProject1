@@ -28,7 +28,7 @@ class SoupExtractor(DownloadedData):
         self.soup = soup
 
         self.euroNumberPattern = "€([0-9])+(,([0-9])+)?"  # Pattern for € 8,000
-        self.expertEstimatePattern = re.compile(f"expertestimate{self.euroNumberPattern}-{self.euroNumberPattern}")
+        self.expertEstimatePattern = re.compile(f"(expertestimate|retailestimate){self.euroNumberPattern}-{self.euroNumberPattern}")
 
 
 
@@ -83,7 +83,7 @@ class SoupExtractor(DownloadedData):
     """
 
     def extractExpertEstimateFromText(self,expertEstSpanText):
-        estMinMax = wbsu.multipleReplaceReGeX({"expertestimate": "", "€": "", ",": ""}, expertEstSpanText).split(
+        estMinMax = wbsu.multipleReplaceReGeX({"expertestimate": "","retailestimate":"", "€": "", ",": ""}, expertEstSpanText).split(
             "-")  # Remove unneccessary chars and split it on the "-"
         estMinMax = [int(est) for est in estMinMax]
 

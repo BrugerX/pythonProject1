@@ -46,7 +46,7 @@ class SoupExtractorTests(unittest.TestCase):
 
     def test_experts_estimate_three_digit_thousands(self):
         closed_LID_three_digit_diamond = "84642777"
-        soup_diamonds = Browser.SeleniumBrowser.getActiveAuctionSoup(closed_LID_three_digit_diamond)
+        soup_diamonds = Browser.SeleniumBrowser.getClosedAuctionSoup(closed_LID_three_digit_diamond)
         soup_extractor_diamonds = EnT.SoupExtractor("",soup_diamonds)
 
         real_experts_estimates = (120000,160000)
@@ -59,7 +59,7 @@ class SoupExtractorTests(unittest.TestCase):
         dataframe = bid_table.getDataframeCopy()
 
 
-        self.assertTrue(dataframe["id"].is_unique)
+        self.assertTrue(dataframe["BID"].is_unique)
         self.assertTrue(dataframe["amount"].is_unique)
 
         #Check that the same token and country is used for every name
@@ -67,14 +67,14 @@ class SoupExtractorTests(unittest.TestCase):
             self.assertEqual(len(dataframe[dataframe["name"] == name]["token"].unique()),1)
             self.assertEqual(len(dataframe[dataframe["name"] == name]["country.code"].unique()), 1)
 
-    def test_bid_table_diamonds(self):
+    def test_image_table_diamonds(self):
         closed_LID_diamonds = "84559939"
         images_table = EnT.ImagesTable("",Browser.ImageApi.getImageGallery(closed_LID_diamonds))
 
         img_df = images_table.getDataframeCopy()
 
         self.assertTrue(tu.columnsFollowing(img_df,"size",["width","height"]))
-        self.assertTrue(tu.columnsFollowing(img_df,"idx",["type"]))
+        self.assertTrue(tu.columnsFollowing(img_df,"image_idx",["type"]))
 
     def test_images_table_multiple_categories(self):
         closed_LID_diamonds = "84559939"
@@ -83,7 +83,7 @@ class SoupExtractorTests(unittest.TestCase):
         img_df = images_table.getDataframeCopy()
 
         self.assertTrue(tu.columnsFollowing(img_df,"size",["width","height"]))
-        self.assertTrue(tu.columnsFollowing(img_df,"idx",["type"]))
+        self.assertTrue(tu.columnsFollowing(img_df,"image_idx",["type"]))
 
         closed_comic_books = "84765561"
         images_table = EnT.ImagesTable("",Browser.ImageApi.getImageGallery(closed_comic_books))
@@ -91,7 +91,7 @@ class SoupExtractorTests(unittest.TestCase):
         img_df = images_table.getDataframeCopy()
 
         self.assertTrue(tu.columnsFollowing(img_df,"size",["width","height"]))
-        self.assertTrue(tu.columnsFollowing(img_df,"idx",["type"]))
+        self.assertTrue(tu.columnsFollowing(img_df,"image_idx",["type"]))
 
     #Specific to this LID
     def test_shipping_table_correct_prices(self):
