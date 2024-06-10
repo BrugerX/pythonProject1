@@ -193,7 +193,7 @@ class ImagesTable(Table):
             for image_set in entry['images']:
                 for size, details in image_set.items():
                     record = {
-                        'idx': index,
+                        'image_idx': index,
                         'type': entry_type,
                         'size': size,
                         'url': details['url'],

@@ -77,6 +77,28 @@ class BidRecord(Record):
     def recordTimestampDownloadedData(self):
         self.record_dataframe["latest_bid_timestamp"] = self.latest_bid_table.getDownloadedTimestamp()
 
+class ImageRecord(Record):
+
+    def __init__(self,downloadedData):
+        super().__init__()
+        self.meta_data = downloadedData["meta_data"]
+        self.image_data = downloadedData["image_data"]
+
+    def composeRecordForDatabase(self):
+        self.record_dataframe = self.image_data.getDataframeCopy()
+        self.record_dataframe["LID"] = self.meta_data.getLID()
+
+    def getRecordForDatabaseCopy(self):
+        self.composeRecordIfNotExists()
+        return self.record_dataframe.copy()
+
+    def recordTimestampDownloadedData(self):
+        pass
+
+    def getRequiredDownloadedData(self):
+        return ["meta_data", "image_data"]
+
+
 
 
 

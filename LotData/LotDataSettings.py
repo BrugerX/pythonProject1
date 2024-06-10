@@ -1,6 +1,11 @@
 from enum import Enum
 
 
+"""
+    All data in dicts (bid,last_bid etc.) is in singular!
+
+"""
+
 class ReservePriceEnum:
 
     @staticmethod
