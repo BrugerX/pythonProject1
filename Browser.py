@@ -148,8 +148,9 @@ class SeleniumBrowser():
                 # Use JavaScript to click the "Show all info" button
                 driver.execute_script("arguments[0].click();", show_all_info_btn)
 
-            html = driver.page_source
 
+
+            html = driver.page_source
             soup = bs4.BeautifulSoup(html)
             return soup
 

@@ -2,7 +2,8 @@ from enum import Enum
 
 
 """
-    All data in dicts (bid,last_bid etc.) is in singular!
+    All data in dicts (bid,last_bid etc.) are in singular!
+    [meta_data,latest_bid_data,bid_data,soup_data,shipping_data,image_data]
 
 """
 

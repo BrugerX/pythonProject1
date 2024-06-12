@@ -166,3 +166,37 @@ class AuctionHistory(Record):
 
     def getRequiredDownloadedData(self):
         return ["meta_data", "latest_bid_data"]
+
+class AuctionRecord(Record):
+
+    def __init__(self, downloadedData):
+        super().__init__()
+        self.meta_data = downloadedData["meta_data"]
+        self.latest_bid_data = downloadedData["latest_bid_data"]
+        self.soup_data = downloadedData["soup_data"]
+
+
+    def composeRecordForDatabase(self):
+        (exp_est1,exp_est2) = self.soup_data.getExpertEstimates()
+        self.record_dataframe = pd.DataFrame.from_dict([{
+            "LID":self.meta_data.getLID(),
+            "experts_estimate_min": exp_est1,
+            "experts_estimate_max": exp_est2,
+            "bidding_start_timestamp": self.latest_bid_data.getTimeStart(),
+            "bidding_close_timestamp": self.latest_bid_data.getTimeToClose(),
+            "is_buy_now_available": self.latest_bid_data.getIsBuyNowAvailable(),
+            "AID": self.latest_bid_data.getAuctionID(),
+            "realtime_channel": self.latest_bid_data.getRealtimeChannel()
+            #TODO: Add currency! - as of 12-06-2024 the expert estimates getter will just fail, since it won't find the euro-symbol, but if we ever change that *GULP*
+        }])
+        self.recordTimestampDownloadedData()
+    def getRecordForDatabaseCopy(self):
+        self.composeRecordIfNotExists()
+        return self.record_dataframe.copy()
+
+    def recordTimestampDownloadedData(self):
+        self.record_dataframe["latest_bid_timestamp"] = self.latest_bid_data.getDownloadedTimestamp()
+        self.record_dataframe["soup_timestamp"] = self.soup_data.getDownloadedTimestamp()
+
+    def getRequiredDownloadedData(self):
+        return ["meta_data","soup_data" ,"latest_bid_data"]

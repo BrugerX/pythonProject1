@@ -83,6 +83,7 @@ class SoupExtractor(DownloadedData):
     """
 
     def extractExpertEstimateFromText(self,expertEstSpanText):
+        #TODO: Also return the currency of the estimate! - We need it for AuctionData as of 12-06-2024
         estMinMax = wbsu.multipleReplaceReGeX({"expertestimate": "","retailestimate":"", "€": "", ",": ""}, expertEstSpanText).split(
             "-")  # Remove unneccessary chars and split it on the "-"
         estMinMax = [int(est) for est in estMinMax]
@@ -148,6 +149,22 @@ class LatestBidTable(Table):
     def getTimeToClose(self):
         self.extractDataframeIfDoesntExist()
         return self.dataframe["bidding_end_time"][0]
+
+    def getTimeStart(self):
+        self.extractDataframeIfDoesntExist()
+        return self.dataframe["bidding_start_time"][0]
+
+    def getIsBuyNowAvailable(self):
+        self.extractDataframeIfDoesntExist()
+        return self.dataframe["is_buy_now_available"][0]
+
+    def getAuctionID(self):
+        self.extractDataframeIfDoesntExist()
+        return self.dataframe["auction_id"][0]
+
+    def getRealtimeChannel(self):
+        self.extractDataframeIfDoesntExist()
+        return self.dataframe["realtime_channel"][0]
 
     #There is a special case of reserve price almost being met, we would like to handle
     def getReservePriceMet(self):
