@@ -290,3 +290,9 @@ class MetadataExtractor(DownloadedData):
     def getLID(self):
         return self.LID
 
+    def getCategoryName(self):
+        return self.categoy_name
+
+    def getCategoryInt(self):
+        return self.category_int
+

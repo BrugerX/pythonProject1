@@ -200,3 +200,33 @@ class AuctionRecord(Record):
 
     def getRequiredDownloadedData(self):
         return ["meta_data","soup_data" ,"latest_bid_data"]
+
+
+class SpecsRecord(Record):
+
+        def __init__(self, downloadedData):
+            super().__init__()
+            self.meta_data = downloadedData["meta_data"]
+            self.soup_data = downloadedData["soup_data"]
+
+        def composeRecordForDatabase(self):
+            self.record_dataframe = pd.DataFrame.from_dict\
+                    ([{
+                    "LID":self.meta_data.getLID(),
+                "spec_dict":self.soup_data.getSpecs(),
+                    "category_name": self.meta_data.getCategoryName(),
+                    "category_int": self.meta_data.getCategoryInt()
+                }]
+            )
+            self.recordTimestampDownloadedData()
+
+        def getRecordForDatabaseCopy(self):
+            self.composeRecordIfNotExists()
+            return self.record_dataframe.copy()
+
+        def recordTimestampDownloadedData(self):
+            self.record_dataframe["soup_timestamp"] = self.soup_data.getDownloadedTimestamp()
+
+        def getRequiredDownloadedData(self):
+            return ["meta_data", "soup_data"]
+
