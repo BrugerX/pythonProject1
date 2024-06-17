@@ -1,6 +1,6 @@
 import unittest
 import LotData.ExtractorsAndTables as EnT
-import LotData.LotData as ld
+import LotData.Record as ld
 import Browser
 import utility.TestUtil as tu
 import utility.webscrapingUtil as wut

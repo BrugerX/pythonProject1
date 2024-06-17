@@ -1,7 +1,7 @@
 import unittest
 import LotData.ExtractorsAndTables as eta
 import Browser as brwsr
-import LotData.LotData as lt
+import LotData.Record as lt
 import utility.webscrapingUtil as wut
 
 

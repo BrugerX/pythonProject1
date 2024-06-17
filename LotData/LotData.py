@@ -1,232 +1,127 @@
-from abc import ABC,abstractmethod
-import pandas as pd
+import LotData.Record as rcrd
+import Browser as brws
+import LotData.ExtractorsAndTables as ent
+import utility.webscrapingUtil as wut
 
+"""
 
-class Record(ABC):
+    TIMESTAMPING
+    When we scrape, we would like to add a timestamp to the data we have downloaded.
 
-    def __init__(self):
-        self.required_downloaded_data = self.getRequiredDownloadedData()
-        self.record_dataframe = None
+    However, say we have the following times:
+    t = 0s + t0: l1 = timestamp()
+    t = 1s + t0: data = downloadData()
+    t = 30 min, 1s + t0: createTableFromData(data)
 
+    It is then evident, that we should choose the timestamp that is 30min from t0, 
+    as this is the time at which we got our data. 
+    So, we should always put timestamps immediately AFTER downloads!
 
-    @abstractmethod
-    def getRequiredDownloadedData(self):
-        return None
+"""
 
-    @abstractmethod
-    def getRecordForDatabaseCopy(self):
-        self.composeRecordIfNotExists()
 
-        return pd.DataFrame
 
-    @abstractmethod
-    def recordTimestampDownloadedData(self):
-        return None
+class DownloadManager:
 
-    @abstractmethod
-    def composeRecordForDatabase(self):
-        pass
+    def __init__(self,meta_data):
+        #Data used to create records
+        self.downloadedData = {"meta_data":meta_data,"latest_bid_data":None
+                                ,"soup_data": None,"shipping_data":None,
+                               "image_data":None,"bid_data":None}
 
-    def composeRecordIfNotExists(self):
-        if(self.record_dataframe is None):
-            self.composeRecordForDatabase()
+    def keys(self):
+        return self.downloadedData.keys()
 
-class BidRecord(Record):
 
-    def __init__(self,downloadedData):
-        super().__init__()
-        self.meta_data = downloadedData["meta_data"]
-        self.latest_bid_table = downloadedData["latest_bid_data"]
-        self.bid_table = downloadedData["bid_data"]
 
-    def getRequiredDownloadedData(self):
-        return ["meta_data","latest_bid_data","bid_data"]
+    def downloadSaveLatestBidData(self):
+        latest_bid_json = brws.LotApi.getLotDescription(self.getLID())
+        l_bid_timestamp = wut.getTimeStamp()
+        l_bid_table = ent.LatestBidTable(l_bid_timestamp,latest_bid_json)
+        self.downloadedData["latest_bid_data"] = l_bid_table
 
-    def composeRecordForDatabase(self):
-        bids_df = self.bid_table.getDataframeCopy()
-        lbid_df = self.latest_bid_table.getDataframeCopy()
+    def downloadSaveSoupData(self):
+        isClosed = self.isClosed()
+        LID = self.getLID()
 
-        is_auction_closed = self.latest_bid_table.getIsClosed()
+        if (isClosed):
+            soup = brws.SeleniumBrowser.getClosedAuctionSoup(LID)
+        else:
+            soup = brws.SeleniumBrowser.getActiveAuctionSoup(LID)
 
-        # Convert lbids_df to a dictionary for easy lookup
-        current_bid_dict = lbid_df.set_index('currency')['current_bid_amount'].to_dict()
+        soup_timestamp = wut.getTimeStamp()
 
-        #We check to see which of the bids match the latest bid and whether the auction is closed
-        bids_df['is_final_bid'] = bids_df.apply(
-            lambda x: x['amount'] == current_bid_dict.get(x['currency_code'], None) and is_auction_closed, axis=1
-        )
+        soup_exctr = ent.SoupExtractor(soup_timestamp, soup)
+        self.downloadedData["soup_data"] = soup_exctr
 
+    def downloadSaveImageData(self):
+        LID = self.getLID()
+        image_json_api = brws.ImageApi.getImageGallery(LID)
+        image_timestamp = wut.getTimeStamp()
+        image_table = ent.ImagesTable(image_timestamp,image_json_api)
+        self.downloadedData["image_data"] = image_table
 
-        reserve_price_met = self.latest_bid_table.getReservePriceMet()
-        bids_df["is_reserve_price_met"] = reserve_price_met
+    def downloadSaveShippingData(self):
+        LID = self.getLID()
+        json_api = brws.ShippingApi.getShippingAndPaymentInformation(LID)
+        timestamp = wut.getTimeStamp()
+        table = ent.ShippingTable(timestamp, json_api)
+        self.downloadedData["shipping_data"] = table
 
-        #We don't use these columns
-        bids_df = bids_df.drop(columns=["country.flag_png_url", "country.flag_svg_url"])
-        bids_df["favorite_count"] = self.latest_bid_table.getFavoriteCount()
-        bids_df["AID"] = lbid_df["auction_id"][0]
-        bids_df["LID"] = self.meta_data.getLID()
+    def downloadSaveBidData(self):
+        LID = self.getLID()
+        json_api = brws.BidApi.getBids(LID)
+        timestamp = wut.getTimeStamp()
+        table = ent.BidsTable(timestamp,json_api)
+        self.downloadedData["bid_data"] = table
 
-        self.record_dataframe = bids_df
-        self.recordTimestampDownloadedData()
+    """
 
-    def getRecordForDatabaseCopy(self):
-        self.composeRecordIfNotExists()
+    Returns the DownloadedData if it is already downloaded
+    Else it downloads and saves it first.
+    THIS IS THE ONLY PUBLIC METHOD FOR THIS CLASS THAT RETURNS ANY OF THE DOWNLOADEDDATA OBJECTS!
 
-        return self.record_dataframe.copy()
+    """
 
+    #TODO: Test that all timestamps are within a certain margin of error.
 
-    def recordTimestampDownloadedData(self):
-        self.record_dataframe["latest_bid_timestamp"] = self.latest_bid_table.getDownloadedTimestamp()
+    def getData(self, key):
+        if (not self.isDownloaded(key)):
+            self.downloadSaveData(key)
 
-class ImageRecord(Record):
+        return self.downloadedData[key]
 
-    def __init__(self,downloadedData):
-        super().__init__()
-        self.meta_data = downloadedData["meta_data"]
-        self.image_data = downloadedData["image_data"]
 
-    def composeRecordForDatabase(self):
-        self.record_dataframe = self.image_data.getDataframeCopy()
-        self.record_dataframe["LID"] = self.meta_data.getLID()
+    #TODO: A test to see if we have all cases in our downloadedData
 
-    def getRecordForDatabaseCopy(self):
-        self.composeRecordIfNotExists()
-        return self.record_dataframe.copy()
+    def downloadSaveData(self, key):
+        match key:
 
-    def recordTimestampDownloadedData(self):
-        pass
+            case "latest_bid_data":
+                self.downloadSaveLatestBidData()
 
-    def getRequiredDownloadedData(self):
-        return ["meta_data", "image_data"]
+            case "soup_data":
+                self.downloadSaveSoupData()
 
+            case "shipping_data":
+                self.downloadSaveShippingData()
 
-class ShippingRecord(Record):
+            case "image_data":
+                self.downloadSaveImageData()
 
-    def __init__(self,downloadedData):
-        super().__init__()
-        self.meta_data = downloadedData["meta_data"]
-        self.shipping_data = downloadedData["shipping_data"]
+            case "bid_data":
+                self.downloadSaveBidData()
 
-    def composeRecordForDatabase(self):
-        self.record_dataframe = self.shipping_data.getDataframeCopy()
-        self.record_dataframe["LID"] = self.meta_data.getLID()
+    def __getitem__(self, item):
+        return self.getData(item)
 
-    def getRecordForDatabaseCopy(self):
-        self.composeRecordIfNotExists()
-        return self.record_dataframe.copy()
+    def isClosed(self):
+        return self.getData("latest_bid_data").getIsClosed()
 
-    def recordTimestampDownloadedData(self):
-        pass
+    #Checks whether or not the key has already been downloaded
+    def isDownloaded(self,key):
+        return (self.downloadedData[key] is not None)
 
-    def getRequiredDownloadedData(self):
-        return ["meta_data", "shipping_data"]
-
-
-
-
-class FavoriteHistory(Record):
-
-    def __init__(self,downloadedData):
-        super().__init__()
-        self.meta_data = downloadedData["meta_data"]
-        self.latest_bid_data = downloadedData["latest_bid_data"]
-
-    def composeRecordForDatabase(self):
-        self.record_dataframe = pd.DataFrame.from_dict({"LID":[self.meta_data.getLID()],"favorite_count":[self.latest_bid_data.getFavoriteCount()]})
-        self.recordTimestampDownloadedData()
-    def getRecordForDatabaseCopy(self):
-        self.composeRecordIfNotExists()
-        return self.record_dataframe.copy()
-
-    def recordTimestampDownloadedData(self):
-        self.record_dataframe["latest_bid_timestamp"] = self.latest_bid_data.getDownloadedTimestamp()
-
-    def getRequiredDownloadedData(self):
-        return ["meta_data", "latest_bid_data"]
-
-
-
-
-class AuctionHistory(Record):
-
-    def __init__(self,downloadedData):
-        super().__init__()
-        self.meta_data = downloadedData["meta_data"]
-        self.latest_bid_data = downloadedData["latest_bid_data"]
-
-    def composeRecordForDatabase(self):
-        self.record_dataframe = pd.DataFrame.from_dict({"LID":[self.meta_data.getLID()],"is_closed":[self.latest_bid_data.getIsClosed()],"time_to_close":[self.latest_bid_data.getTimeToClose()]})
-        self.recordTimestampDownloadedData()
-    def getRecordForDatabaseCopy(self):
-        self.composeRecordIfNotExists()
-        return self.record_dataframe.copy()
-
-    def recordTimestampDownloadedData(self):
-        self.record_dataframe["latest_bid_timestamp"] = self.latest_bid_data.getDownloadedTimestamp()
-
-    def getRequiredDownloadedData(self):
-        return ["meta_data", "latest_bid_data"]
-
-class AuctionRecord(Record):
-
-    def __init__(self, downloadedData):
-        super().__init__()
-        self.meta_data = downloadedData["meta_data"]
-        self.latest_bid_data = downloadedData["latest_bid_data"]
-        self.soup_data = downloadedData["soup_data"]
-
-
-    def composeRecordForDatabase(self):
-        (exp_est1,exp_est2) = self.soup_data.getExpertEstimates()
-        self.record_dataframe = pd.DataFrame.from_dict([{
-            "LID":self.meta_data.getLID(),
-            "experts_estimate_min": exp_est1,
-            "experts_estimate_max": exp_est2,
-            "bidding_start_timestamp": self.latest_bid_data.getTimeStart(),
-            "bidding_close_timestamp": self.latest_bid_data.getTimeToClose(),
-            "is_buy_now_available": self.latest_bid_data.getIsBuyNowAvailable(),
-            "AID": self.latest_bid_data.getAuctionID(),
-            "realtime_channel": self.latest_bid_data.getRealtimeChannel()
-            #TODO: Add currency! - as of 12-06-2024 the expert estimates getter will just fail, since it won't find the euro-symbol, but if we ever change that *GULP*
-        }])
-        self.recordTimestampDownloadedData()
-    def getRecordForDatabaseCopy(self):
-        self.composeRecordIfNotExists()
-        return self.record_dataframe.copy()
-
-    def recordTimestampDownloadedData(self):
-        self.record_dataframe["latest_bid_timestamp"] = self.latest_bid_data.getDownloadedTimestamp()
-        self.record_dataframe["soup_timestamp"] = self.soup_data.getDownloadedTimestamp()
-
-    def getRequiredDownloadedData(self):
-        return ["meta_data","soup_data" ,"latest_bid_data"]
-
-
-class SpecsRecord(Record):
-
-        def __init__(self, downloadedData):
-            super().__init__()
-            self.meta_data = downloadedData["meta_data"]
-            self.soup_data = downloadedData["soup_data"]
-
-        def composeRecordForDatabase(self):
-            self.record_dataframe = pd.DataFrame.from_dict\
-                    ([{
-                    "LID":self.meta_data.getLID(),
-                "spec_dict":self.soup_data.getSpecs(),
-                    "category_name": self.meta_data.getCategoryName(),
-                    "category_int": self.meta_data.getCategoryInt()
-                }]
-            )
-            self.recordTimestampDownloadedData()
-
-        def getRecordForDatabaseCopy(self):
-            self.composeRecordIfNotExists()
-            return self.record_dataframe.copy()
-
-        def recordTimestampDownloadedData(self):
-            self.record_dataframe["soup_timestamp"] = self.soup_data.getDownloadedTimestamp()
-
-        def getRequiredDownloadedData(self):
-            return ["meta_data", "soup_data"]
-
+    def getLID(self):
+        meta_data = self.getData("meta_data")
+        return meta_data.getLID()

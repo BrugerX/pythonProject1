@@ -54,6 +54,7 @@ class SoupExtractor(DownloadedData):
     @return Expert's estimate of an auction, with (m1,m2) where m1<=m2.
     """
 
+    #TODO: Also get the expert's name
     def getExpertEstimates(self):
         spans = self.soup.find_all("span")
 
