@@ -11,7 +11,7 @@ class ClosedDiamondLID(unittest.TestCase):
         meta_data = EnT.MetadataExtractor(closed_LID_diamonds, wut.getTimeStamp(), 715, "Diamonds")
         soup_data = EnT.SoupExtractor(soup_data_timestamp,
                                       Browser.SeleniumBrowser.getClosedAuctionSoup(closed_LID_diamonds))
-        record = ld.SpecsRecord({"meta_data": meta_data, "soup_data": soup_data})
+        record = ld.SpecRecord({"meta_data": meta_data, "soup_data": soup_data})
 
         def test_LID(self):
             favorite_df = self.record.getRecordForDatabaseCopy()

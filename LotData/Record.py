@@ -209,7 +209,7 @@ class AuctionRecord(Record):
         return ["meta_data","soup_data" ,"latest_bid_data"]
 
 
-class SpecsRecord(Record):
+class SpecRecord(Record):
 
         def __init__(self, downloadedData):
             super().__init__()

@@ -125,3 +125,32 @@ class DownloadManager:
     def getLID(self):
         meta_data = self.getData("meta_data")
         return meta_data.getLID()
+
+
+
+class LotData:
+
+    def __init__(self,meta_data):
+        self.download_manager = DownloadManager(meta_data)
+
+        self.records = {"shipping_record":rcrd.ShippingRecord,"favorite_history_record":rcrd.FavoriteHistory,
+                        "bid_record":rcrd.BidRecord,"image_record":rcrd.ImageRecord,
+                        "auction_history_record":rcrd.AuctionRecord,"auction_record":rcrd.AuctionRecord,
+                        "spec_record":rcrd.SpecRecord}
+
+    def downloadNeccessaryData(self,downloadable_data):
+
+        for data in downloadable_data:
+            self.download_manager.getData(data)
+
+    def getRecordClass(self,class_name):
+        return self.records[class_name]
+
+    def __getitem__(self, item):
+        record_class = self.getRecordClass(item)
+        self.downloadNeccessaryData(record_class.getRequiredDownloadedData())
+        record = record_class(self.download_manager)
+        return record.getRecordForDatabaseCopy()
+
+    def keys(self):
+        return self.records.keys()
