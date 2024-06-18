@@ -238,3 +238,31 @@ class SpecRecord(Record):
         def getRequiredDownloadedData():
             return ["meta_data", "soup_data"]
 
+#TODO: Create tests for this one as well
+class MetaDataRecord(Record):
+
+    def __init__(self, downloadedData):
+        super().__init__()
+        self.meta_data = downloadedData["meta_data"]
+
+    def composeRecordForDatabase(self):
+        self.record_dataframe = pd.DataFrame.from_dict \
+                ([{
+                "LID": self.meta_data.getLID(),
+                "category_name": self.meta_data.getCategoryName(),
+                "category_int": self.meta_data.getCategoryInt()
+            }]
+            )
+        self.recordTimestampDownloadedData()
+
+    def getRecordForDatabaseCopy(self):
+        self.composeRecordIfNotExists()
+        return self.record_dataframe.copy()
+
+    def recordTimestampDownloadedData(self):
+        self.record_dataframe["soup_timestamp"] = self.meta_data.getDownloadedTimestamp()
+
+    @staticmethod
+    def getRequiredDownloadedData():
+        return ["meta_data"]
+

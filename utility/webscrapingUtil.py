@@ -62,6 +62,4 @@ def getTimeStamp():
 def turnStringToTimestamp(timestamp_str):
     return datetime.strptime(timestamp_str, "%Y-%m-%dT%H:%M:%SZ")
 
-def getRandomClosedLID(category = None):
-    return "84559939"
 

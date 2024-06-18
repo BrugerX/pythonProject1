@@ -1,4 +1,4 @@
-
+import utility.webscrapingUtil as wut
 
 """
 
@@ -18,4 +18,10 @@ def columnsFollowing(dataframe,leading_col,following_cols):
                 return False
     return True
 
+
+def getRandomClosedLID(category = None):
+    return "84559939"
+
+def testIfToArraysAreEqual(A,B):
+    return set(A).issubset(set(B)) and set(B).issubset(set(A))
 

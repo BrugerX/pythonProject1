@@ -7,6 +7,15 @@ from enum import Enum
 
 """
 
+def getAllDownloadableDataKeys():
+    return ["meta_data","latest_bid_data","bid_data","soup_data","shipping_data","image_data"]
+
+def getAllRecordKeys():
+    return ["shipping_record","favorite_history_record",
+                        "bid_record","image_record",
+                        "auction_history_record","auction_record",
+                        "spec_record","meta_data_record"]
+
 class ReservePriceEnum:
 
     @staticmethod

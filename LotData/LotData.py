@@ -94,23 +94,36 @@ class DownloadManager:
 
     #TODO: A test to see if we have all cases in our downloadedData
 
+    """
+    
+    @return True if there was a match case with the key, false else
+    
+    """
+
     def downloadSaveData(self, key):
         match key:
 
             case "latest_bid_data":
                 self.downloadSaveLatestBidData()
+                return True
 
             case "soup_data":
                 self.downloadSaveSoupData()
+                return True
 
             case "shipping_data":
                 self.downloadSaveShippingData()
+                return True
 
             case "image_data":
                 self.downloadSaveImageData()
+                return True
 
             case "bid_data":
                 self.downloadSaveBidData()
+                return True
+
+        return False
 
     def __getitem__(self, item):
         return self.getData(item)
