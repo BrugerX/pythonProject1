@@ -109,7 +109,7 @@ class SeleniumBrowser():
 
     @staticmethod
     def getEdgedriver():
-        return webdriver.Edge(executable_path=r"C:\Users\DripTooHard\PycharmProjects\pythonProject1\msedgedriver.exe")
+        return webdriver.Edge(executable_path=r"C:\Users\DripTooHard\PycharmProjects\pythonProject1\msedgedriver.exe",options=Settings.getDriverOptions())
 
     @staticmethod
     def declinceCookies(webdriver):
@@ -151,7 +151,7 @@ class SeleniumBrowser():
 
 
             html = driver.page_source
-            soup = bs4.BeautifulSoup(html)
+            soup = bs4.BeautifulSoup(html,features="lxml")
             return soup
 
         except Exception as e:
@@ -164,7 +164,7 @@ class SeleniumBrowser():
         driver.get(requestUrl)
         SeleniumBrowser.declinceCookies(driver)
         WebDriverWait(driver,5)
-        soup = bs4.BeautifulSoup(driver.page_source)
+        soup = bs4.BeautifulSoup(driver.page_source,features="lxml")
         return soup
 
 

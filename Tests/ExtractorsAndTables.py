@@ -30,7 +30,7 @@ class SoupExtractorTests(unittest.TestCase):
     #Specific to these LIDS
     def test_soup_gets_experts_estimate_diamonds_watches(self):
         closed_LID_diamonds = "84559939"
-        closed_LID_watches = "84654169"
+        closed_LID_watches = "85071793"
 
         soup_diamonds = Browser.SeleniumBrowser.getClosedAuctionSoup(closed_LID_diamonds)
         soup_extractor_diamonds = EnT.SoupExtractor("",soup_diamonds)
@@ -39,7 +39,7 @@ class SoupExtractorTests(unittest.TestCase):
         soup_extractor_watches = EnT.SoupExtractor("",soup_watches)
 
         real_experts_estimates_diamonds = (1300,1600)
-        real_experts_estimates_watches = (1100,1300)
+        real_experts_estimates_watches = (850,950)
 
         self.assertEqual(real_experts_estimates_watches,soup_extractor_watches.getExpertEstimates())
         self.assertEqual(real_experts_estimates_diamonds,soup_extractor_diamonds.getExpertEstimates())

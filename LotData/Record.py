@@ -1,6 +1,6 @@
 from abc import ABC,abstractmethod
 import pandas as pd
-
+import json
 
 class Record(ABC):
 
@@ -65,8 +65,12 @@ class BidRecord(Record):
         #We don't use these columns
         bids_df = bids_df.drop(columns=["country.flag_png_url", "country.flag_svg_url"])
         bids_df["favorite_count"] = self.latest_bid_table.getFavoriteCount()
-        bids_df["AID"] = lbid_df["auction_id"][0]
-        bids_df["LID"] = self.meta_data.getLID()
+        bids_df["aid"] = lbid_df["auction_id"][0]
+        bids_df["lid"] = self.meta_data.getLID()
+
+        #Do some renaming because SQL has some requirements - rawr xD Means I love u in dinosur
+        bids_df.rename(columns={"name":"bidder_name","created_at":"bid_placed_timestamp","token":"bidder_token",
+                                "country.code":"bidder_country_code","BID":"bid_id"},inplace=True)
 
         self.record_dataframe = bids_df
         self.recordTimestampDownloadedData()
@@ -89,7 +93,7 @@ class ImageRecord(Record):
 
     def composeRecordForDatabase(self):
         self.record_dataframe = self.image_data.getDataframeCopy()
-        self.record_dataframe["LID"] = self.meta_data.getLID()
+        self.record_dataframe["lid"] = self.meta_data.getLID()
 
     def getRecordForDatabaseCopy(self):
         self.composeRecordIfNotExists()
@@ -112,7 +116,7 @@ class ShippingRecord(Record):
 
     def composeRecordForDatabase(self):
         self.record_dataframe = self.shipping_data.getDataframeCopy()
-        self.record_dataframe["LID"] = self.meta_data.getLID()
+        self.record_dataframe["lid"] = self.meta_data.getLID()
 
     def getRecordForDatabaseCopy(self):
         self.composeRecordIfNotExists()
@@ -136,7 +140,8 @@ class FavoriteHistory(Record):
         self.latest_bid_data = downloadedData["latest_bid_data"]
 
     def composeRecordForDatabase(self):
-        self.record_dataframe = pd.DataFrame.from_dict({"LID":[self.meta_data.getLID()],"favorite_count":[self.latest_bid_data.getFavoriteCount()]})
+        self.record_dataframe = pd.DataFrame.from_dict({"lid":[self.meta_data.getLID()],
+                                                        "favorite_count":[self.latest_bid_data.getFavoriteCount()]})
         self.recordTimestampDownloadedData()
     def getRecordForDatabaseCopy(self):
         self.composeRecordIfNotExists()
@@ -160,7 +165,10 @@ class AuctionHistory(Record):
         self.latest_bid_data = downloadedData["latest_bid_data"]
 
     def composeRecordForDatabase(self):
-        self.record_dataframe = pd.DataFrame.from_dict({"LID":[self.meta_data.getLID()],"is_closed":[self.latest_bid_data.getIsClosed()],"time_to_close":[self.latest_bid_data.getTimeToClose()]})
+        self.record_dataframe = pd.DataFrame.from_dict({"lid":[self.meta_data.getLID()]
+                                                           ,"is_closed":[self.latest_bid_data.getIsClosed()]
+                                                           ,"time_to_close":[self.latest_bid_data.getTimeToClose()],
+                                                        "is_buy_now_available": self.latest_bid_data.getIsBuyNowAvailable()})
         self.recordTimestampDownloadedData()
     def getRecordForDatabaseCopy(self):
         self.composeRecordIfNotExists()
@@ -185,15 +193,14 @@ class AuctionRecord(Record):
     def composeRecordForDatabase(self):
         (exp_est1,exp_est2) = self.soup_data.getExpertEstimates()
         self.record_dataframe = pd.DataFrame.from_dict([{
-            "LID":self.meta_data.getLID(),
+            "lid":self.meta_data.getLID(),
             "experts_estimate_min": exp_est1,
             "experts_estimate_max": exp_est2,
             "bidding_start_timestamp": self.latest_bid_data.getTimeStart(),
             "bidding_close_timestamp": self.latest_bid_data.getTimeToClose(),
-            "is_buy_now_available": self.latest_bid_data.getIsBuyNowAvailable(),
-            "AID": self.latest_bid_data.getAuctionID(),
+            "aid": self.latest_bid_data.getAuctionID(),
             "realtime_channel": self.latest_bid_data.getRealtimeChannel()
-            #TODO: Add currency! - as of 12-06-2024 the expert estimates getter will just fail, since it won't find the euro-symbol, but if we ever change that *GULP*
+            #TODO: Add currency! - as of 12-06-2024 the expert estimates getter will just fail if it isn't in euros, since it won't find the euro-symbol, but if we ever change that *GULP*
         }])
         self.recordTimestampDownloadedData()
     def getRecordForDatabaseCopy(self):
@@ -219,8 +226,8 @@ class SpecRecord(Record):
         def composeRecordForDatabase(self):
             self.record_dataframe = pd.DataFrame.from_dict\
                     ([{
-                    "LID":self.meta_data.getLID(),
-                "spec_dict":self.soup_data.getSpecs(),
+                    "lid":self.meta_data.getLID(),
+                "spec_dict": json.dumps(self.soup_data.getSpecs()),
                     "category_name": self.meta_data.getCategoryName(),
                     "category_int": self.meta_data.getCategoryInt()
                 }]
@@ -239,7 +246,7 @@ class SpecRecord(Record):
             return ["meta_data", "soup_data"]
 
 #TODO: Create tests for this one as well
-class MetaDataRecord(Record):
+class MetaRecord(Record):
 
     def __init__(self, downloadedData):
         super().__init__()
@@ -248,7 +255,7 @@ class MetaDataRecord(Record):
     def composeRecordForDatabase(self):
         self.record_dataframe = pd.DataFrame.from_dict \
                 ([{
-                "LID": self.meta_data.getLID(),
+                "lid": self.meta_data.getLID(),
                 "category_name": self.meta_data.getCategoryName(),
                 "category_int": self.meta_data.getCategoryInt()
             }]
@@ -260,7 +267,7 @@ class MetaDataRecord(Record):
         return self.record_dataframe.copy()
 
     def recordTimestampDownloadedData(self):
-        self.record_dataframe["soup_timestamp"] = self.meta_data.getDownloadedTimestamp()
+        self.record_dataframe["meta_timestamp"] = self.meta_data.getDownloadedTimestamp()
 
     @staticmethod
     def getRequiredDownloadedData():

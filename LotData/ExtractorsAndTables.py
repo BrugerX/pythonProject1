@@ -181,7 +181,7 @@ class BidsTable(Table):
         self.api_json = self.api_json["bids"]
 
     def addTimeStampToDF(self):
-        self.dataframe["bids_timestamp"] = self.getDownloadedTimestamp()
+        self.dataframe["bid_api_timestamp"] = self.getDownloadedTimestamp()
 
     def extractDFFromJson(self):
         #WRITTEN BY CHATGPT
@@ -216,7 +216,7 @@ class ImagesTable(Table):
                 for size, details in image_set.items():
                     record = {
                         'image_idx': index,
-                        'type': entry_type,
+                        'image_type': entry_type,
                         'size': size,
                         'url': details['url'],
                         'orientation': details['orientation'],
@@ -258,6 +258,7 @@ class ShippingTable(Table):
         expanded_rates = []
         for rate in rates:
             rate_entry = rate.copy()
+
             rate_entry.update({
                 "estimated_delivery_from_days": estimated_delivery_times[0]["from_days"],
                 "estimated_delivery_to_days": estimated_delivery_times[0]["to_days"],
@@ -269,8 +270,8 @@ class ShippingTable(Table):
                 "provider_id": provider_id,
                 "is_pickup_preferable": is_pickup_preferable,
                 "is_pickup_only": is_pickup_only,
-                "pickup_location_country_code": pickup_location["country_code"],
-                "pickup_location_city": pickup_location["city"]
+                "pickup_location_country_code": pickup_location["country_code"] if pickup_location else "None",
+                "pickup_location_city": pickup_location["city"] if pickup_location else "None"
             })
             expanded_rates.append(rate_entry)
 

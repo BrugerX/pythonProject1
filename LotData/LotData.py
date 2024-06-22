@@ -146,9 +146,9 @@ class LotData:
     def __init__(self,meta_data):
         self.download_manager = DownloadManager(meta_data)
 
-        self.records = {"shipping_record":rcrd.ShippingRecord,"favorite_history_record":rcrd.FavoriteHistory,
+        self.records = {"meta_record":rcrd.MetaRecord,"shipping_record":rcrd.ShippingRecord,"favorite_history_record":rcrd.FavoriteHistory,
                         "bid_record":rcrd.BidRecord,"image_record":rcrd.ImageRecord,
-                        "auction_history_record":rcrd.AuctionRecord,"auction_record":rcrd.AuctionRecord,
+                        "auction_history_record":rcrd.AuctionHistory,"auction_record":rcrd.AuctionRecord,
                         "spec_record":rcrd.SpecRecord}
 
     def downloadNeccessaryData(self,downloadable_data):
