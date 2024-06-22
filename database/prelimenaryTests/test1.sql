@@ -6,6 +6,11 @@ CREATE TABLE meta
     meta_timestamp timestamp with time zone not null /* First time we scraped this lot */
 );
 
+ALTER TABLE meta
+ADD COLUMN last_processed_timestamp TIMESTAMP WITH TIME ZONE,
+ADD COLUMN status TEXT CHECK (status IN ('new', 'in_q', 'processing', 'idle', 'closed', 'processed'));
+
+
 CREATE TABLE auction
 (
     lid bigint primary key,
@@ -108,7 +113,7 @@ CREATE TABLE shipping
   pickup_location_city TEXT,
   shipping_timestamp TIMESTAMP WITH TIME ZONE NOT NULL, /* Timestamp for when we request the shipping API */
   FOREIGN KEY (lid) REFERENCES meta (lid) ON DELETE CASCADE,
-  UNIQUE (lid, price, destination_country_short_code,currency_code)
+  UNIQUE (lid, price, region_code,currency_code)
 );
 
 SELECT MAX(sid) FROM shipping;
