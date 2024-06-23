@@ -68,8 +68,8 @@ class SoupExtractor(DownloadedData):
                 #We have now found the proper span
                 return self.extractExpertEstimateFromText(sanitizedParentText)
 
-        raise RuntimeError(f"Didn't find expert estimate in the list of spans, got to index {idx} \n With spans: {spans}")
-
+        #raise RuntimeError(f"Didn't find expert estimate in the list of spans, got to index {idx} \n With spans: {spans}")
+        return (None,None)
 
     """
 
@@ -93,7 +93,7 @@ class SoupExtractor(DownloadedData):
             return tuple(estMinMax)  # We turn it into a tuple, so we don't accidentally mutate it later
         else:
             raise RuntimeError(
-                f"Our scraping method for expert's estimates didn't work.\n For the following test: {expertEstSpanText} we got the following estimate min: {estMinMax[0]} and max {estMinMax[1]}")
+                f"Our scraping method for expert's estimates didn't work.\n For the following text: {expertEstSpanText} we got the following estimate min: {estMinMax[0]} and max {estMinMax[1]}")
 
 
 

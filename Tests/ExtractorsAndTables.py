@@ -52,6 +52,20 @@ class SoupExtractorTests(unittest.TestCase):
         real_experts_estimates = (120000,160000)
         self.assertEqual(real_experts_estimates,soup_extractor_diamonds.getExpertEstimates())
 
+    def test_experts_estimate_none_when_no_estimate(self):
+        LID_no_estimate = "85072201"
+        soup_diamonds = Browser.SeleniumBrowser.getActiveAuctionSoup(LID_no_estimate)
+        soup_extractor_diamonds = EnT.SoupExtractor("",soup_diamonds)
+        self.assertEqual((None,None), soup_extractor_diamonds.getExpertEstimates())
+
+    def test_experts_estimate_retail_estimate(self):
+        LID_retail_estimate = "85228119"
+        soup_diamonds = Browser.SeleniumBrowser.getActiveAuctionSoup(LID_retail_estimate)
+        real_estimate = (4600,5700)
+        soup_extractor_diamonds = EnT.SoupExtractor("",soup_diamonds)
+        self.assertEqual(real_estimate, soup_extractor_diamonds.getExpertEstimates())
+
+
     def test_bid_table(self):
         closed_LID_diamonds = "84559939"
         bid_table = EnT.BidsTable("",Browser.BidApi.getBids(closed_LID_diamonds))
@@ -74,7 +88,7 @@ class SoupExtractorTests(unittest.TestCase):
         img_df = images_table.getDataframeCopy()
 
         self.assertTrue(tu.columnsFollowing(img_df,"size",["width","height"]))
-        self.assertTrue(tu.columnsFollowing(img_df,"image_idx",["type"]))
+        self.assertTrue(tu.columnsFollowing(img_df,"image_idx",["image_type"]))
 
     def test_images_table_multiple_categories(self):
         closed_LID_diamonds = "84559939"
@@ -83,7 +97,7 @@ class SoupExtractorTests(unittest.TestCase):
         img_df = images_table.getDataframeCopy()
 
         self.assertTrue(tu.columnsFollowing(img_df,"size",["width","height"]))
-        self.assertTrue(tu.columnsFollowing(img_df,"image_idx",["type"]))
+        self.assertTrue(tu.columnsFollowing(img_df,"image_idx",["image_type"]))
 
         closed_comic_books = "84765561"
         images_table = EnT.ImagesTable("",Browser.ImageApi.getImageGallery(closed_comic_books))
@@ -91,7 +105,7 @@ class SoupExtractorTests(unittest.TestCase):
         img_df = images_table.getDataframeCopy()
 
         self.assertTrue(tu.columnsFollowing(img_df,"size",["width","height"]))
-        self.assertTrue(tu.columnsFollowing(img_df,"image_idx",["type"]))
+        self.assertTrue(tu.columnsFollowing(img_df,"image_idx",["image_type"]))
 
     #Specific to this LID
     def test_shipping_table_correct_prices(self):
