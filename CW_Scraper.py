@@ -17,9 +17,9 @@ class MagazineOverview:
 
     def get_soup(self,pageNr):
         if (pageNr is None):
-            return Browser.Browser.load_bs4(f"https://www.catawiki.com/en/c/{self.category}",delayTimeSeconds= self.delayTimeS)
+            return Browser.Browser.load_bs4(f"{Browser.CategoryOverview.getCategoryBaseURL()}{self.category}",delayTimeSeconds= self.delayTimeS)
         else:
-            return Browser.Browser.load_bs4(f"https://www.catawiki.com/en/c/{self.category}?page={pageNr}", delayTimeSeconds= self.delayTimeS)
+            return Browser.Browser.load_bs4(f"{Browser.CategoryOverview.getCategoryBaseURL()}{self.category}?page={pageNr}", delayTimeSeconds= self.delayTimeS)
 
     def set_active_nr_pages(self):
         soup = self.get_soup(None)

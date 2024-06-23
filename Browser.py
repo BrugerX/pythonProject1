@@ -25,7 +25,12 @@ class Browser:
 
     @staticmethod
     def load_request(URL):
-        return requests.get(URL)
+        request = requests.get(URL)
+
+        if request.status_code != 200:
+            raise Exception(f"Got error code:{request.status_code} when trying to load_bs4 for {URL}")
+
+        return request
 
     @staticmethod
     def load_bs4(URL,parser = "lxml", delayTimeSeconds = 0):
@@ -33,10 +38,12 @@ class Browser:
         time.sleep(delayTimeSeconds)
         request = Browser.load_request(URL)
 
-        if request.status_code != 200:
-            raise Exception(f"Got error code:{request.status_code} when trying to load_bs4 for {URL}")
-
         return bs4.BeautifulSoup(request.content,parser)
+
+    @staticmethod
+    def get_redirected_url(URL):
+        request = Browser.load_request(URL)
+        return request.url
 
 
 
@@ -166,6 +173,13 @@ class SeleniumBrowser():
         WebDriverWait(driver,5)
         soup = bs4.BeautifulSoup(driver.page_source,features="lxml")
         return soup
+
+
+class CategoryOverview():
+
+    @staticmethod
+    def getCategoryBaseURL():
+        return "https://www.catawiki.com/en/c/"
 
 
 
