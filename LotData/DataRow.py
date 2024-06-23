@@ -128,8 +128,6 @@ class BidData(LotData):
         return self.dataRows
 
 
-
-
 """
 
 @:arg bidDict: A single dict from the history of bids.
@@ -188,7 +186,7 @@ class BidRow(DataRow):
         AID = finalBidsDict["auction_id"]
 
         self.dataDict["favouriteCount"] = favouriteCount
-        self.dataDict["AID"] = AID
+        self.dataDict["aid"] = AID
 
         # Related to bidder
         bidderDict = self.bidDict["bidder"]
@@ -470,7 +468,7 @@ class AuctionData(ScrapingBasedLotData):
         self.dataRows["bidding_close_timestamp"] = lotAPIResult["bidding_end_time"]
         self.dataRows["is_reserve_price_met"] = lotAPIResult["reserve_price_met"]
         self.dataRows["favourite_count"] = lotAPIResult["favorite_count"]
-        self.dataRows["AID"] = lotAPIResult["auction_id"]
+        self.dataRows["aid"] = lotAPIResult["auction_id"]
 
 
         self.dataRows["scraping_timestamp"] = self.timeStamp

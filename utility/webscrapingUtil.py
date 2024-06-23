@@ -12,6 +12,7 @@ def turnDecimalNumberIntoInt( decimalNumber):
 
 
 
+
 """
 
     Takes a list of Beautifulsoup HTML tags and returns the one with the highest integer value
@@ -58,4 +59,22 @@ def multipleReplaceReGeX(replacements, text):
 def getTimeStamp():
     return datetime.now(timezone.utc)
 
+def turnStringToTimestamp(timestamp_str):
+    return datetime.strptime(timestamp_str, "%Y-%m-%dT%H:%M:%SZ")
+
+def getCategoryFromURL(url):
+
+    # Define the regex pattern
+    pattern = r'/c/(\d+)-([a-zA-Z-]+)'
+
+    # Search for the pattern in the URL
+    match = re.search(pattern, url)
+
+    # Extract the number and category if a match is found
+    if match:
+        cat_int = match.group(1)
+        cat_name = match.group(2)
+        return (int(cat_int),cat_name)
+    else:
+        return (None,None)
 

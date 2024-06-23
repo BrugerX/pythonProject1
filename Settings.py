@@ -1,3 +1,5 @@
+from selenium.webdriver import EdgeOptions
+
 class Settings:
 
     def __init__(self):
@@ -14,3 +16,9 @@ class Settings:
     @staticmethod
     def getDefaultWaitTimeBetweenCallsSeconds():
         return 0
+
+    @staticmethod
+    def getDriverOptions():
+        edge_otpions = EdgeOptions()
+        edge_otpions.add_argument("headless")
+        return edge_otpions

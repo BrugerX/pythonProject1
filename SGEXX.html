@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@1/css/pico.min.css">
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #e0e7ff; /* Soft blue background */
+        }
+        nav {
+            background-color: #1e3a8a; /* Deep blue background for the nav */
+            border-bottom: 2px solid #475569; /* Greyish-blue border */
+        }
+        nav ul li a, footer a, h2, h3 {
+            color: #ffffff; /* White text for contrast */
+        }
+        .container {
+            background-color: #ffffff;
+            padding: 2rem;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        footer {
+            background-color: #1e3a8a; /* Deep blue background for the footer */
+            color: #ffffff;
+            padding: 1rem 0;
+        }
+        footer a:hover {
+            text-decoration: underline;
+        }
+        .subscribe-section {
+            background-color: #e0e7ff; /* Soft blue background for subscribe section */
+        }
+        button {
+            background-color: #3b82f6; /* Bright blue for buttons */
+            color: #ffffff;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #2563eb; /* Slightly darker blue on hover */
+        }
+    </style>
+    <title>Scandinavian Gemstone Exchange</title>
+</head>
+<body>
+    <nav class="container-fluid">
+        <ul>
+            <li><img src="SGEX_logo.png" alt="Scandinavian Gemstone Exchange Logo" style="height: 50px;"></li>
+        </ul>
+        <ul>
+            <li><a href="#">Home</a></li>
+            <li><a href="#">About</a></li>
+            <li><a href="#" role="button">Contact</a></li>
+        </ul>
+    </nav>
+    <main class="container">
+        <div class="grid">
+            <section>
+                <hgroup>
+                    <h2>Welcome to Scandinavian Gemstone Exchange</h2>
+                    <h3>Your Premier Source for Wholesale Opals</h3>
+                </hgroup>
+                <p>Scandinavian Gemstone Exchange is the leading wholesaler of high-quality gemstones in Denmark, specializing in opals. With our deep industry knowledge and commitment to excellence, we serve the needs of jewelers and collectors alike.</p>
+                <figure>
+                    <img src="SGEX_logo.png" alt="Scandinavian Gemstone Exchange Logo" style="max-width: 100%; height: auto;">
+                    <figcaption><a href="#" target="_blank">Learn more about our gemstones</a></figcaption>
+                </figure>
+                <h3>Discover Opals</h3>
+                <p>Explore the captivating world of opals, known for their unique play-of-color and brilliance. Our collection features a diverse selection of these enchanting gemstones.</p>
+                <h3>Our Commitment</h3>
+                <p>Integrity, quality, and transparency are the pillars of our business. We ensure ethical sourcing and provide complete traceability for each gemstone.</p>
+            </section>
+        </div>
+    </main>
+    <section aria-label="Subscribe example" class="subscribe-section">
+        <div class="container">
+            <article>
+                <hgroup>
+                    <h2>Stay Updated</h2>
+                    <h3>Subscribe to Our Newsletter</h3>
+                </hgroup>
+                <form class="grid">
+                    <input type="text" id="firstname" name="firstname" placeholder="First Name" aria-label="First Name" required />
+                    <input type="email" id="email" name="email" placeholder="Email Address" aria-label="Email Address" required />
+                    <button type="submit" onclick="event.preventDefault()">Subscribe</button>
+                </form>
+            </article>
+        </div>
+    </section>
+    <footer class="container">
+        <small>
+            <a href="#">Privacy Policy</a> • <a href="#">Terms of Use</a>
+        </small>
+    </footer>
+</body>
+</html>

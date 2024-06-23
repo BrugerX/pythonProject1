@@ -25,7 +25,12 @@ class Browser:
 
     @staticmethod
     def load_request(URL):
-        return requests.get(URL)
+        request = requests.get(URL)
+
+        if request.status_code != 200:
+            raise Exception(f"Got error code:{request.status_code} when trying to load_bs4 for {URL}")
+
+        return request
 
     @staticmethod
     def load_bs4(URL,parser = "lxml", delayTimeSeconds = 0):
@@ -33,10 +38,12 @@ class Browser:
         time.sleep(delayTimeSeconds)
         request = Browser.load_request(URL)
 
-        if request.status_code != 200:
-            raise Exception(f"Got error code:{request.status_code} when trying to load_bs4 for {URL}")
-
         return bs4.BeautifulSoup(request.content,parser)
+
+    @staticmethod
+    def get_redirected_url(URL):
+        request = Browser.load_request(URL)
+        return request.url
 
 
 
@@ -55,12 +62,12 @@ class BidApi(Api):
     @staticmethod
     def getBids(LID,currencyCode = Settings.getDefaultCurrencyCode()):
         bidApiCallUrl = fr"https://www.catawiki.com/buyer/api/v3/lots/{LID}/bids?currency_code={currencyCode}&per_page=200"
-        return Browser.load_bs4(bidApiCallUrl)
+        return json.loads(Browser.load_bs4(bidApiCallUrl).text)
 
     @staticmethod
     def getLatestBid(LID):
         latestBidApiCallUrl = fr"https://www.catawiki.com/buyer/api/v3/bidding/lots?ids={LID}"
-        return Browser.load_bs4(latestBidApiCallUrl)
+        return json.loads(Browser.load_bs4(latestBidApiCallUrl).text)
 
 
 class ShippingApi(Api):
@@ -109,7 +116,7 @@ class SeleniumBrowser():
 
     @staticmethod
     def getEdgedriver():
-        return webdriver.Edge(executable_path=r"C:\Users\DripTooHard\PycharmProjects\pythonProject1\msedgedriver.exe")
+        return webdriver.Edge(executable_path=r"C:\Users\DripTooHard\PycharmProjects\pythonProject1\msedgedriver.exe",options=Settings.getDriverOptions())
 
     @staticmethod
     def declinceCookies(webdriver):
@@ -134,7 +141,7 @@ class SeleniumBrowser():
             SeleniumBrowser.declinceCookies(driver)
 
             try:
-                view_lot_btn = WebDriverWait(driver, 10).until(
+                view_lot_btn = WebDriverWait(driver, 5).until(
                     EC.presence_of_element_located((By.CLASS_NAME, "lot-closed-banner__view-this-lot"))
                 )
                 driver.execute_script("arguments[0].click();", view_lot_btn)
@@ -142,15 +149,16 @@ class SeleniumBrowser():
             except TimeoutException:
 
                 # If "View this lot" button does not exist, then find the "Show all info" button
-                show_all_info_btn = WebDriverWait(driver, 10).until(
+                show_all_info_btn = WebDriverWait(driver, 5).until(
                     EC.presence_of_element_located((By.CSS_SELECTOR, "[data-testid='closed-odp-show-all-info']"))
                 )
                 # Use JavaScript to click the "Show all info" button
                 driver.execute_script("arguments[0].click();", show_all_info_btn)
 
-            html = driver.page_source
 
-            soup = bs4.BeautifulSoup(html)
+
+            html = driver.page_source
+            soup = bs4.BeautifulSoup(html,features="lxml")
             return soup
 
         except Exception as e:
@@ -162,9 +170,16 @@ class SeleniumBrowser():
         driver = SeleniumBrowser.getEdgedriver()
         driver.get(requestUrl)
         SeleniumBrowser.declinceCookies(driver)
-        WebDriverWait(driver,10)
-        soup = bs4.BeautifulSoup(driver.page_source)
+        WebDriverWait(driver,5)
+        soup = bs4.BeautifulSoup(driver.page_source,features="lxml")
         return soup
+
+
+class CategoryOverview():
+
+    @staticmethod
+    def getCategoryBaseURL():
+        return "https://www.catawiki.com/en/c/"
 
 
 
