@@ -228,6 +228,8 @@ class SpecRecord(Record):
                     ([{
                     "lid":self.meta_data.getLID(),
                 "spec_dict": json.dumps(self.soup_data.getSpecs()),
+                    "description": self.soup_data.getDescription(),
+                    "seller_story": self.soup_data.getSellerStory(),
                     "category_name": self.meta_data.getCategoryName(),
                     "category_int": self.meta_data.getCategoryInt()
                 }]

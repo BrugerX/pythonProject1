@@ -46,7 +46,7 @@ CREATE TABLE spec
     category_int INT not null,
     soup_timestamp timestamp with time zone not null, /* Timestamp for the soup we downloaded */
     description text,
-    sellers_story text,
+    seller_story text,
     FOREIGN KEY (lid) REFERENCES meta (lid) ON DELETE CASCADE
 );
 
