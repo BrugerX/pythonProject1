@@ -5,6 +5,13 @@ import utility.webscrapingUtil as wbsu
 from abc import ABC,abstractmethod
 import json
 from LotData.LotDataSettings import ReservePriceEnum
+class ExtractionException(Exception):
+
+    def __init__(self, message, lot_soup):
+        # Call the base class constructor with the parameters it needs
+        super().__init__(message)
+        self.lot_soup = lot_soup
+
 
 
 class DownloadedData:
@@ -95,7 +102,28 @@ class SoupExtractor(DownloadedData):
             raise RuntimeError(
                 f"Our scraping method for expert's estimates didn't work.\n For the following text: {expertEstSpanText} we got the following estimate min: {estMinMax[0]} and max {estMinMax[1]}")
 
+    def getDescription(self):
+        soup = self.getSoup()
+        description_parent = soup.find_all("div", {"class": "lot-info-description__description"})[0]
+        children = description_parent.findChildren("p", recursive=False)
+        description = ""
 
+        for child in children:
+            description += child.get_text(separator="\n")
+
+        if description is None:
+            raise ExtractionException("Could not find item description", soup)
+
+        return description
+
+    def getSellerStory(self):
+        soup = self.getSoup()
+        seller_story = soup.find_all("div", {"class": "lot-info-description__seller-profile-text"})
+
+        if(len(seller_story) == 0):
+            return None
+
+        return seller_story[0].get_text(separator="\n")
 
 class Table(DownloadedData,ABC):
 

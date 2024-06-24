@@ -2,6 +2,7 @@ import unittest
 import LotData.ExtractorsAndTables as eta
 import Browser as brwsr
 import LotData.Record as lt
+import utility.LoggingUtility
 import utility.webscrapingUtil as wut
 import utility.TestUtil as tut
 
@@ -10,8 +11,8 @@ class MyTestCase(unittest.TestCase):
 
     def instantiate_bids_record(self):
         LID_closed = tut.getRandomClosedLID()
-        t_bids = wut.getTimeStamp()
-        t_lbids = wut.getTimeStamp()
+        t_bids = utility.LoggingUtility.getTimeStamp()
+        t_lbids = utility.LoggingUtility.getTimeStamp()
         meta_data = eta.MetadataExtractor(LID_closed,123,111,"abc")
         bid_table = eta.BidsTable(t_bids,brwsr.BidApi.getBids(LID_closed))
         lbids_table = eta.LatestBidTable(t_lbids,brwsr.LotApi.getLotDescription(LID_closed))
@@ -21,8 +22,8 @@ class MyTestCase(unittest.TestCase):
     #We test if the timestamps of latest_bid_table and bid_table matches the one in the record
     def test_correct_timestamps(self):
         LID_closed = tut.getRandomClosedLID()
-        t_bids = wut.getTimeStamp()
-        t_lbids = wut.getTimeStamp()
+        t_bids = utility.LoggingUtility.getTimeStamp()
+        t_lbids = utility.LoggingUtility.getTimeStamp()
         meta_data = eta.MetadataExtractor(LID_closed,123,111,"abc")
         bid_table = eta.BidsTable(t_bids,brwsr.BidApi.getBids(LID_closed))
         lbids_table = eta.LatestBidTable(t_lbids,brwsr.LotApi.getLotDescription(LID_closed))

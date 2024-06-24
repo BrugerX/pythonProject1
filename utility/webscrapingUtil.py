@@ -1,5 +1,5 @@
 import re
-from datetime import datetime, timezone
+from datetime import datetime
 
 """
     Takes a string of the format "$ 18,000" and turns it into an int of 18000
@@ -55,9 +55,6 @@ def multipleReplaceReGeX(replacements, text):
     regex = re.compile("(%s)" % "|".join(map(re.escape, replacements.keys())))
     # For each match, look-up corresponding value in dictionary
     return regex.sub(lambda mo: replacements[mo.group()], text)
-
-def getTimeStamp():
-    return datetime.now(timezone.utc)
 
 def turnStringToTimestamp(timestamp_str):
     return datetime.strptime(timestamp_str, "%Y-%m-%dT%H:%M:%SZ")

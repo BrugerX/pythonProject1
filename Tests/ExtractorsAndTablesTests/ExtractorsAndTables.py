@@ -120,6 +120,7 @@ class SoupExtractorTests(unittest.TestCase):
         self.assertEqual(23,shipping_df[shipping_df["region_name"] == "Denmark"]["price"].iloc[0])
 
 
+
     #TODO: Test what happens if experts min and max is equal
     #TODO: Create a method that generates LIDs from our database to test on a certain percentage
 

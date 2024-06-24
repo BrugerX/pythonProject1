@@ -2,13 +2,14 @@ import unittest
 import LotData.ExtractorsAndTables as EnT
 import LotData.Record as ld
 import Browser
+import utility.LogingUtility
 import utility.TestUtil as tu
 import utility.webscrapingUtil as wut
 
 class ClosedDiamondLID(unittest.TestCase):
         closed_LID_diamonds = "84559939"
-        soup_data_timestamp = wut.getTimeStamp()
-        meta_data = EnT.MetadataExtractor(closed_LID_diamonds, wut.getTimeStamp(), 715, "Diamonds")
+        soup_data_timestamp = utility.LogingUtility.getTimeStamp()
+        meta_data = EnT.MetadataExtractor(closed_LID_diamonds, utility.LogingUtility.getTimeStamp(), 715, "Diamonds")
         soup_data = EnT.SoupExtractor(soup_data_timestamp,
                                       Browser.SeleniumBrowser.getClosedAuctionSoup(closed_LID_diamonds))
         record = ld.SpecRecord({"meta_data": meta_data, "soup_data": soup_data})

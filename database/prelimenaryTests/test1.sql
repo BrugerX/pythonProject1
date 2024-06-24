@@ -11,6 +11,8 @@ ADD COLUMN last_processed_timestamp TIMESTAMP WITH TIME ZONE,
 ADD COLUMN status TEXT CHECK (status IN ('new', 'in_q', 'processing', 'idle', 'closed', 'processed'));
 
 
+
+
 CREATE TABLE auction
 (
     lid bigint primary key,
@@ -43,6 +45,8 @@ CREATE TABLE spec
     category_name text not null,
     category_int INT not null,
     soup_timestamp timestamp with time zone not null, /* Timestamp for the soup we downloaded */
+    description text,
+    sellers_story text,
     FOREIGN KEY (lid) REFERENCES meta (lid) ON DELETE CASCADE
 );
 
@@ -116,7 +120,14 @@ CREATE TABLE shipping
   UNIQUE (lid, price, region_code,currency_code)
 );
 
-SELECT MAX(sid) FROM shipping;
-SELECT nextval(pg_get_serial_sequence(sid, shipping));
 
-SELECT setval(pg_get_serial_sequence('shipping', 'sid'), (SELECT MAX(sid) FROM shipping) + 1);
+
+SELECT pg_backend_pid();
+
+ALTER TABLE spec ADD COLUMN description text;
+
+select pid, pg_blocking_pids(pid) as blocked_by, query as blocked_query
+from pg_stat_activity
+where pg_blocking_pids(pid)::text != '{}';
+
+VACUUM (VERBOSE, ANALYZE) spec;

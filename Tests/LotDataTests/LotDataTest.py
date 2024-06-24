@@ -1,4 +1,6 @@
 import unittest
+
+import utility.LogingUtility
 import utility.webscrapingUtil as wut
 import utility.TestUtil as tut
 import LotData.LotDataSettings as lds
@@ -18,7 +20,7 @@ class ClosedDiamondAuction(unittest.TestCase):
     """
     def test_onlyHasOfficialKeys(self):
         all_record_keys = lds.getAllRecordKeys()
-        m_timestamp = wut.getTimeStamp()
+        m_timestamp = utility.LogingUtility.getTimeStamp()
         meta_data = ent.MetadataExtractor(self.closed_LID,m_timestamp,self.category_int,self.category_name)
         lot_data = ltdt.LotData(meta_data)
         l_data_keys = lot_data.keys()

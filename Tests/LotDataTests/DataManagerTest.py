@@ -1,4 +1,6 @@
 import unittest
+
+import utility.LogingUtility
 import utility.webscrapingUtil as wut
 import utility.TestUtil as tut
 import LotData.LotDataSettings as lds
@@ -12,7 +14,7 @@ class ClosedDiamondAuction(unittest.TestCase):
     all_data_keys = lds.getAllDownloadableDataKeys()
 
     def test_onlyHasOfficialKeys(self):
-        m_timestamp = wut.getTimeStamp()
+        m_timestamp = utility.LogingUtility.getTimeStamp()
         meta_data = ent.MetadataExtractor(self.closed_LID,m_timestamp,self.category_int,self.category_name)
         download_manager = ltdt.DownloadManager(meta_data)
         d_manager_keys = list(download_manager.keys())
@@ -25,7 +27,7 @@ class ClosedDiamondAuction(unittest.TestCase):
     
     """
     def test_downloadSaveData_returnsFalseNoMatch(self):
-        m_timestamp = wut.getTimeStamp()
+        m_timestamp = utility.LogingUtility.getTimeStamp()
         meta_data = ent.MetadataExtractor(self.closed_LID,m_timestamp,self.category_int,self.category_name)
         download_manager = ltdt.DownloadManager(meta_data)
 
@@ -37,7 +39,7 @@ class ClosedDiamondAuction(unittest.TestCase):
     We would like to test, whether or not there is a case match in downloadSaveData for all the real downloadableDataTypes 
     """
     def test_hasAllDownloadSaveCases(self):
-        m_timestamp = wut.getTimeStamp()
+        m_timestamp = utility.LogingUtility.getTimeStamp()
         meta_data = ent.MetadataExtractor(self.closed_LID,m_timestamp,self.category_int,self.category_name)
         download_manager = ltdt.DownloadManager(meta_data)
 

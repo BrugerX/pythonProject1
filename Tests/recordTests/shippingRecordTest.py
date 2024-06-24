@@ -2,13 +2,14 @@ import unittest
 import LotData.ExtractorsAndTables as EnT
 import LotData.Record as ld
 import Browser
+import utility.LoggingUtility
 import utility.TestUtil as tu
 import utility.webscrapingUtil as wut
 
 class ClosedDiamondShipping(unittest.TestCase):
     closed_LID_diamonds = "84559939"
-    shipping_timestamp = wut.getTimeStamp()
-    meta_data = EnT.MetadataExtractor(closed_LID_diamonds,wut.getTimeStamp(),715,"Diamonds")
+    shipping_timestamp = utility.LoggingUtility.getTimeStamp()
+    meta_data = EnT.MetadataExtractor(closed_LID_diamonds, utility.LoggingUtility.getTimeStamp(), 715, "Diamonds")
     shipping_table = EnT.ShippingTable(shipping_timestamp,Browser.ShippingApi.getShippingAndPaymentInformation(closed_LID_diamonds))
     shipping_record = ld.ShippingRecord({"shipping_data":shipping_table,"meta_data":meta_data})
 

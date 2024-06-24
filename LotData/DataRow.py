@@ -13,7 +13,8 @@ import bs4
 
 from Browser import Browser,BidApi,ShippingApi,ImageApi,SeleniumBrowser, LotApi
 from Settings import Settings
-from utility.webscrapingUtil import multipleReplaceReGeX,getTimeStamp
+from utility.webscrapingUtil import multipleReplaceReGeX
+from utility.LoggingUtility import getTimeStamp
 import pandas as pd
 
 

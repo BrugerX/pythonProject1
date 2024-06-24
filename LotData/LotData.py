@@ -1,6 +1,7 @@
 import LotData.Record as rcrd
 import Browser as brws
 import LotData.ExtractorsAndTables as ent
+import utility.LoggingUtility as lut
 import utility.webscrapingUtil as wut
 
 """
@@ -36,7 +37,7 @@ class DownloadManager:
 
     def downloadSaveLatestBidData(self):
         latest_bid_json = brws.LotApi.getLotDescription(self.getLID())
-        l_bid_timestamp = wut.getTimeStamp()
+        l_bid_timestamp = lut.getTimeStamp()
         l_bid_table = ent.LatestBidTable(l_bid_timestamp,latest_bid_json)
         self.downloadedData["latest_bid_data"] = l_bid_table
 
@@ -49,7 +50,7 @@ class DownloadManager:
         else:
             soup = brws.SeleniumBrowser.getActiveAuctionSoup(LID)
 
-        soup_timestamp = wut.getTimeStamp()
+        soup_timestamp = lut.getTimeStamp()
 
         soup_exctr = ent.SoupExtractor(soup_timestamp, soup)
         self.downloadedData["soup_data"] = soup_exctr
@@ -57,21 +58,21 @@ class DownloadManager:
     def downloadSaveImageData(self):
         LID = self.getLID()
         image_json_api = brws.ImageApi.getImageGallery(LID)
-        image_timestamp = wut.getTimeStamp()
+        image_timestamp = lut.getTimeStamp()
         image_table = ent.ImagesTable(image_timestamp,image_json_api)
         self.downloadedData["image_data"] = image_table
 
     def downloadSaveShippingData(self):
         LID = self.getLID()
         json_api = brws.ShippingApi.getShippingAndPaymentInformation(LID)
-        timestamp = wut.getTimeStamp()
+        timestamp = lut.getTimeStamp()
         table = ent.ShippingTable(timestamp, json_api)
         self.downloadedData["shipping_data"] = table
 
     def downloadSaveBidData(self):
         LID = self.getLID()
         json_api = brws.BidApi.getBids(LID)
-        timestamp = wut.getTimeStamp()
+        timestamp = lut.getTimeStamp()
         table = ent.BidsTable(timestamp,json_api)
         self.downloadedData["bid_data"] = table
 
