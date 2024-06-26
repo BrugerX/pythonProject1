@@ -75,3 +75,6 @@ def getCategoryFromURL(url):
     else:
         return (None,None)
 
+
+def recordIntoTabe(record_key):
+    return record_key.replace("_record", "")

@@ -1,0 +1,1 @@
+environment_information = {"database_username":"DBUSER","database_password":"DBPASS","database_name":"DBNAME","filepath":r"C:\Users\DripTooHard\PycharmProjects\pythonProject1\.env"}

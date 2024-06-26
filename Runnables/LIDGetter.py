@@ -6,6 +6,7 @@ import LotData.ExtractorsAndTables as ent
 from utility import webscrapingUtil as wut
 from sqlalchemy import create_engine
 import numpy as np
+import database.DatabaseManager as dbm
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.sql import text
 import csv
@@ -30,9 +31,7 @@ if __name__ == '__main__':
     nr_categories = len(wanted_categories)
 
     #instantiate engine
-    engine = create_engine('postgresql://postgres:secret123@localhost:5432/postgres')
-    Session = sessionmaker(bind=engine)
-    session = Session()
+    session,engine = dbm.getSessionEngine()
 
     #We iterate over each category, such that we scrape one page at a time from each
     nr_active_pages = [nr_active_pages for (_,_,nr_active_pages) in scraped_tracker.values()]

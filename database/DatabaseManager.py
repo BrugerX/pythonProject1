@@ -2,8 +2,26 @@ import psycopg2 as pg2
 from decouple import Config, RepositoryEnv
 import threading
 from psycopg2.extensions import AsIs
+from sqlalchemy.orm import Session
+from sqlalchemy import create_engine
+import CW_Scraper
+import sqlalchemy
+import time
+import numpy as np
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy.sql import text
+from database.EnvSettings import environment_information
 
-class Psycopg2Connection:
+
+
+
+def getSessionEngine():
+    engine = create_engine('postgresql://postgres:secret123@localhost:5432/postgres')
+    Session = sessionmaker(bind=engine)
+    session = Session()
+    return (session,engine)
+
+class PostgreSQLConnection:
 
     def __init__(self,usernameEnvName,passwordEnvName,dbnameEnvName):
 
@@ -42,6 +60,53 @@ class Psycopg2Connection:
         self.cur.close()
 
 
+def createSessionAndEngine(self,env_info = environment_information):
+    env_conf = Config(RepositoryEnv(env_info["filepath"]))
+    engine = create_engine(f'postgresql://{env_conf.get(env_info["database_username"])}:{env_conf.get(env_info["database_password"])}@localhost:5432/{env_conf.get(env_info["database_name"])}')
+    Session = sessionmaker(bind=self.engine)
+    session = Session()
+    return (session,engine)
+
+class DatabaseManager:
+
+    def __init__(self):
+
+        session,engine = createSessionAndEngine(environment_information)
+
+
+
+    def getAllTableNames(self):
+        #TODO: Create a table information object, that can track this kind of information, so we don't have to query ite very time. It takes 0.05 seconds to do that
+        query = f"SELECT table_name FROM information_schema.tables WHERE table_schema='public' AND table_type='BASE TABLE';"
+        result = self.session.execute(text(query))
+        all_table_names = [name_tuple[0] for name_tuple in result.fetchall()]
+        return  all_table_names # or fetch the result as required
+
+
+    """
+    
+    @return true if LID is found in table, false if not - fails if the table doesn't have a lid column.
+    """
+    def exists(self,LID,table):
+        query = f"SELECT EXISTS (SELECT 1 FROM {table} WHERE lid = :lid)"
+
+        result = self.session.execute(text(query), {'lid': LID})
+        return result.scalar()
+
+    """
+
+    Checks whether or not all tables have the specified LID - returns the tables that do not have that lid
+
+    """
+
+    def tablesWithout(self,LID):
+        all_tables = self.getAllTableNames()
+        tables_without = [table_name for table_name in all_tables if not self.exists(LID,table_name)]
+        return tables_without
+
+
+
+"""  
 class DatabaseManager:
 
     def __init__(self,usernameEnvName,passwordEnvName,dbnameEnvName):
@@ -109,7 +174,7 @@ class DatabaseManager:
         else:
             currentLotData = self.lotDataQueue.pop()
             self.processLotData(currentLotData)
-
+"""
 
 
 from LotData.DataRow import ALlLotData
