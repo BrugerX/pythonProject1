@@ -3,6 +3,8 @@ import Browser as brws
 import LotData.ExtractorsAndTables as ent
 import utility.LoggingUtility as lut
 import utility.webscrapingUtil as wut
+import LotData.LotDataSettings as lds
+import database.DatabaseManager as dbm
 
 """
 
@@ -160,11 +162,121 @@ class LotData:
     def getRecordClass(self,class_name):
         return self.records[class_name]
 
-    def __getitem__(self, item):
-        record_class = self.getRecordClass(item)
+    def getDataframe(self,record_key):
+        record_class = self.getRecordClass(record_key)
         self.downloadNeccessaryData(record_class.getRequiredDownloadedData())
         record = record_class(self.download_manager)
         return record.getRecordForDatabaseCopy()
 
+    def __getitem__(self, item):
+        return self.getDataframe(item)
+
     def keys(self):
         return self.records.keys()
+
+
+
+"""
+    Unlike LotData which was a purely local representation of the record data of each lot,
+    RunnableInsertion is meant to model not just the local data but also the model of our lot in the database.
+    
+    @param check_scheduling_factors: Will update the scheduling factors based off of information available in the database
+
+"""
+class RunnableInsertion(LotData):
+
+    def __init__(self, session,engine, meta_data, scheduling_factors, check_scheduling_factors=False):
+        super().__init__(meta_data)
+        self.db_manager = dbm.DatabaseManager(session,engine)
+        self.sched_factors = scheduling_factors
+
+        self.initializeNotInsertedTables()
+
+        if check_scheduling_factors:
+            self.queryUpdateSchedulingFactors()
+
+    def isNotInsertedTablesEmpty(self):
+        not_inserted_tables = self.getNotInsertedTables()
+        return (len(not_inserted_tables) == 0)
+    def initializeNotInsertedTables(self):
+        if(self.isNotInsertedTablesEmpty()):
+            self.sched_factors["not_inserted_tables"] = lds.getAllRecordTables()
+
+
+    def getNotInsertedTables(self):
+        return self.sched_factors["not_inserted_tables"]
+
+    """
+
+    If there is a discprancy between our local inserted tables and the one in the database,
+    we should call this method to check the database for all the real tables, we've already inserted this LID into.
+
+    """
+
+    def queryUpdateNotInserted(self):
+        LID = self.download_manager.getLID()
+        inserted_tables = set()
+        all_tables = set(lds.getAllRecordTables())
+
+        for record_key in self.keys():
+            table_name = wut.recordIntoTabe(record_key)
+
+            if(self.db_manager.exists(LID,table_name)):
+                inserted_tables.add(table_name)
+
+        self.sched_factors["not_inserted_tables"] = list(all_tables - inserted_tables)
+
+    def localCheckIfExists(self,table):
+        return (table not in self.sched_factors["not_inserted_factors"])
+
+    def removeFromNotInsert(self,table_name):
+        self.sched_factors["not_inserted_factors"] = [table for table in self.getNotInsertedTables() if table != table_name]
+
+    def insert(self,record_key):
+        table_name = wut.recordIntoTabe(record_key)
+        unique_constraints = self.getRecordClass(record_key).getUniqueConstraints()
+        record_df = self.__getitem__(record_key) #Downloads the neccessary data and gets the dataframe
+        (result_insert,error_insert) = self.db_manager.insertRecordDataframe(record_df,table_name,unique_constraints)
+
+
+        if(result_insert):
+            self.removeFromNotInsert(table_name)
+
+            # Keep track of various scheduling factors
+            match table_name:
+
+                case "bid":
+                    self.sched_factors["has_final_bid"] = record_df["is_final_bid"].any()
+
+                # TODO: Create tests for updating the timestamp. The current update method assumes that the auction and auction_history records retreive data from the same source.
+                case "auction_history":
+                    self.sched_factors["is_closed"] = record_df["is_closed"][0]
+                    self.sched_factors["bidding_close_timestamp"] = record_df["bidding_close_timestamp"]
+
+                case "auction":
+                    self.sched_factors["bidding_close_timestamp"] = record_df["bidding_close_timestamp"]
+
+        else:
+            return (result_insert,error_insert)
+
+
+    def queryAlterLastProcessed(self):
+        if (not self.localCheckIfExists("meta")):
+            self.insert("meta_record")
+
+        return self.db_manager.update("meta",self.download_manager.getLID(),"last_processed_timestamp",lut.getTimeStamp())
+
+
+    def queryUpdateSchedulingFactors(self):
+        LID = self.download_manager.getLID()
+        self.sched_factors["is_closed"] = self.db_manager.isClosed(LID)
+        self.sched_factors["has_final_bid"] = self.db_manager.hasFinalBid(LID)
+        self.sched_factors["bidding_close_timestamp"] = self.db_manager.getBiddingCloseTimestamp(LID)
+        self.queryUpdateNotInserted()
+
+    def getScheduledFactors(self):
+        return self.sched_factors
+
+
+
+

@@ -1,5 +1,5 @@
 from enum import Enum
-
+import utility.webscrapingUtil as wut
 
 """
     All data in dicts (bid,last_bid etc.) are in singular!
@@ -15,6 +15,9 @@ def getAllRecordKeys():
                         "bid_record","image_record",
                         "auction_history_record","auction_record",
                         "spec_record","meta_record"]
+
+def getAllRecordTables():
+    return [wut.recordIntoTabe(record_key) for record_key in getAllRecordKeys()]
 
 class ReservePriceEnum:
 

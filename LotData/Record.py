@@ -31,6 +31,7 @@ class Record(ABC):
         if(self.record_dataframe is None):
             self.composeRecordForDatabase()
 
+
 class BidRecord(Record):
 
     def __init__(self,downloadedData):
@@ -167,7 +168,7 @@ class AuctionHistory(Record):
     def composeRecordForDatabase(self):
         self.record_dataframe = pd.DataFrame.from_dict({"lid":[self.meta_data.getLID()]
                                                            ,"is_closed":[self.latest_bid_data.getIsClosed()]
-                                                           ,"time_to_close":[self.latest_bid_data.getTimeToClose()],
+                                                           ,"bidding_close_timestamp":[self.latest_bid_data.getTimeToClose()],
                                                         "is_buy_now_available": self.latest_bid_data.getIsBuyNowAvailable()})
         self.recordTimestampDownloadedData()
     def getRecordForDatabaseCopy(self):

@@ -226,6 +226,8 @@ class BidsTable(Table):
         self.addTimeStampToDF()
 
 
+
+
 class ImagesTable(Table):
 
     def __init__(self,timestamp,api_json):

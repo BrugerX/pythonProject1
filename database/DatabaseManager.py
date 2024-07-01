@@ -1,19 +1,16 @@
-import psycopg2 as pg2
 from decouple import Config, RepositoryEnv
-import threading
-from psycopg2.extensions import AsIs
-from sqlalchemy.orm import Session
+import pandas as pd
 from sqlalchemy import create_engine
-import CW_Scraper
-import sqlalchemy
-import time
-import numpy as np
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.sql import text
 from database.EnvSettings import environment_information
+from psycopg2 import connect
+from sqlalchemy import select, and_
+from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy import Table, MetaData, inspect
 
-
-
+def getPredefinedTableNames():
+    return ["meta","auction_history","favorite_history","bid","auction","shipping","image","spec"]
 
 def getSessionEngine():
     engine = create_engine('postgresql://postgres:secret123@localhost:5432/postgres')
@@ -21,62 +18,31 @@ def getSessionEngine():
     session = Session()
     return (session,engine)
 
-class PostgreSQLConnection:
+def getPsycopg2Settings():
+    env_conf = Config(RepositoryEnv(environment_information["filepath"]))
+    settings = f"user={env_conf.get(environment_information['database_username'])} password={env_conf.get(environment_information['database_password'])} dbname={env_conf.get(environment_information['database_name'])}"
+    del(env_conf)
+    return settings
 
-    def __init__(self,usernameEnvName,passwordEnvName,dbnameEnvName):
-
-        self.usernameEnvName = usernameEnvName
-        self.passwordEnvName = passwordEnvName
-        self.dbnameEnvName = dbnameEnvName
-
-        envFilePath = r"C:\Users\DripTooHard\PycharmProjects\pythonProject1\.env"
-        env_conf = Config(RepositoryEnv(envFilePath))
-
-        try:
-            self.conn = pg2.connect(f"dbname='{env_conf.get(dbnameEnvName)}' user='{env_conf.get(usernameEnvName)}' host='localhost' password='{env_conf.get(self.passwordEnvName)}'")
-        except Exception as e:
-            raise Exception(f"I am unable to connect to the database, error occured: {e}")
-
-        self.cur = self.conn.cursor()
-
-
-    def query(self,query,data):
-        self.cur.execute(query,data)
-
-    def fetchone(self):
-        self.cur.fetchone()
-
-    def fetchall(self):
-        self.cur.fetchall()
-
-    def commit(self):
-        self.conn.commit()
-
-    def rollback(self):
-        self.conn.rollback()
-
-    def __del__(self):
-        self.conn.close()
-        self.cur.close()
-
+def getPsycopg2Conn():
+    settings = getPsycopg2Settings()
+    return connect(settings)
 
 def createSessionAndEngine(self,env_info = environment_information):
     env_conf = Config(RepositoryEnv(env_info["filepath"]))
     engine = create_engine(f'postgresql://{env_conf.get(env_info["database_username"])}:{env_conf.get(env_info["database_password"])}@localhost:5432/{env_conf.get(env_info["database_name"])}')
+    del(env_conf)
     Session = sessionmaker(bind=self.engine)
     session = Session()
     return (session,engine)
 
 class DatabaseManager:
 
-    def __init__(self):
-
-        session,engine = createSessionAndEngine(environment_information)
-
-
+    def __init__(self,session,engine):
+        self.session = session
+        self.engine = engine
 
     def getAllTableNames(self):
-        #TODO: Create a table information object, that can track this kind of information, so we don't have to query ite very time. It takes 0.05 seconds to do that
         query = f"SELECT table_name FROM information_schema.tables WHERE table_schema='public' AND table_type='BASE TABLE';"
         result = self.session.execute(text(query))
         all_table_names = [name_tuple[0] for name_tuple in result.fetchall()]
@@ -103,6 +69,116 @@ class DatabaseManager:
         all_tables = self.getAllTableNames()
         tables_without = [table_name for table_name in all_tables if not self.exists(LID,table_name)]
         return tables_without
+
+    def insert(self,table,dataframe):
+        try:
+            return (dataframe.to_sql(table, con=self.engine, if_exists='append', index=False),None)
+        except Exception as e:
+            return (False,e)
+
+    def update(self,table,lid,column,value):
+        try:
+            return (self.session.execute(f"UPDATE {table} SET {column} = {value} WHERE {table}.lid = {lid}"),None)
+        except Exception as e:
+            return (False,e)
+
+    def hasFinalBid(self,LID):
+        query = f"SELECT EXISTS (SELECT 1 FROM bid WHERE lid = :lid AND is_final_bid = True)"
+
+        result = self.session.execute(text(query), {'lid': LID})
+        return result.scalar()
+
+    def isClosed(self,LID):
+        query = f"SELECT EXISTS (SELECT 1 FROM auction_history WHERE lid = :lid AND is_closed = True)"
+
+        result = self.session.execute(text(query), {'lid': LID})
+        return result.scalar()
+
+
+    def validateRecordDataframe(self, DF, table_name,unique_constraints):
+
+        # Reflect the table
+        metadata = MetaData()
+        table = Table(table_name, metadata, autoload_with=self.engine)
+
+        # Initialize an empty list to hold rows to insert
+        rows_to_insert = []
+
+        # Iterate over each row in the DataFrame
+        for index, row in DF.iterrows():
+            # Build the filter condition for the unique constraints
+            filter_condition = and_(*[table.c[col] == row[col] for col in unique_constraints])
+
+            # Check if the row already exists
+            exists_query = select(table).where(filter_condition)
+            result = self.session.execute(exists_query).fetchone()
+
+            # If the row does not exist, add it to the list to insert
+            if result is None:
+                rows_to_insert.append(row)
+
+        # Convert the rows to insert back to a DataFrame
+        rows_to_insert_df = pd.DataFrame(rows_to_insert)
+
+        return rows_to_insert_df
+
+    def getRecordConstraints(self,table_name):
+        insepctor = inspect(self.engine)
+
+        if table_name in ["meta","bid","spec","auction"]:
+            return insepctor.get_pk_constraint(table_name)[0]["column_names"]
+
+        if table_name in ["shipping","image"]:
+            return insepctor.get_unique_constraints(table_name)[0]["column_names"]
+
+        if table_name in ["auction_history","favorite_history"]:
+            return []
+
+    def insertRecordDataframe(self,DF,table_name):
+        unique_constraints = self.getRecordConstraints(table_name)
+        valid_dataframe = self.validateRecordDataframe(DF,table_name,unique_constraints)
+
+        result = self.insert(table_name,valid_dataframe)
+        #TODO: Add a check for bid
+
+        return result
+
+    #DO NOT USE - IT IS TOO MESSY
+    def automatic_validate_dataframe(self, df: pd.DataFrame, table_name: str) -> pd.DataFrame:
+        # Reflect the table from the database
+        metadata = MetaData(bind=self.engine)
+        table = Table(table_name, metadata, autoload_with=self.engine)
+        inspector = inspect(self.engine)
+        unique_constraints = inspector.get_unique_constraints(table_name)
+
+        # List to store indices of invalid rows
+        invalid_indices = []
+
+        # Function to check uniqueness in the existing database
+        def is_unique_in_db(unique_columns, row):
+            query = self.session.query(table)
+            for col in unique_columns:
+                query = query.filter(getattr(table.c, col) == row[col])
+            return self.session.query(query.exists()).scalar()
+
+        # Function to check uniqueness in the dataframe itself
+        def is_unique_in_df(unique_columns, row, df_subset):
+            subset = df_subset[unique_columns]
+            return subset.duplicated().any()
+
+        # Iterate over the DataFrame rows
+        for index, row in df.iterrows():
+            for constraint in unique_constraints:
+                unique_columns = constraint['column_names']
+                if is_unique_in_db(unique_columns, row) or is_unique_in_df(unique_columns, row, df[unique_columns]):
+                    invalid_indices.append(index)
+                    break
+
+        # Drop invalid rows
+        df_valid = df.drop(index=invalid_indices)
+
+        return df_valid
+
 
 
 

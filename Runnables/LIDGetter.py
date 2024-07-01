@@ -11,6 +11,28 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.sql import text
 import csv
 import os
+import time
+
+class LIDGetter:
+
+    def __init__(self,job_queue, scheduler_queue, session,engine):
+        #What to scrape and when
+        self.jq = job_queue
+        self.sq = scheduler_queue
+        self.session = session
+        self.engine = engine
+
+        #time sleep settings
+        self.idle_time = 60*60*6
+
+    def main(self):
+        while True:
+            new_job = self.jq.get()
+
+            if(new_job is None):
+                time.sleep(self.idle_time)
+
+            new_job_data = new_job.data
 
 
 
