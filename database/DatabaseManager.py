@@ -7,7 +7,7 @@ from database.EnvSettings import environment_information
 from psycopg2 import connect
 from sqlalchemy import select, and_
 from sqlalchemy.exc import SQLAlchemyError
-from sqlalchemy import Table, MetaData, inspect
+from sqlalchemy import Table, MetaData, inspect, update,delete, insert
 
 def getPredefinedTableNames():
     return ["meta","auction_history","favorite_history","bid","auction","shipping","image","spec"]
@@ -72,7 +72,8 @@ class DatabaseManager:
 
     def insert(self,table,dataframe):
         try:
-            return (dataframe.to_sql(table, con=self.engine, if_exists='append', index=False),None)
+            dataframe.to_sql(table, con=self.engine, if_exists='append', index=False)
+            return [dataframe,None]
         except Exception as e:
             return (False,e)
 
@@ -85,13 +86,19 @@ class DatabaseManager:
     def hasFinalBid(self,LID):
         query = f"SELECT EXISTS (SELECT 1 FROM bid WHERE lid = :lid AND is_final_bid = True)"
 
-        result = self.session.execute(text(query), {'lid': LID})
+        result = self.session.execute(text(query), {'lid': int(LID)})
         return result.scalar()
 
     def isClosed(self,LID):
         query = f"SELECT EXISTS (SELECT 1 FROM auction_history WHERE lid = :lid AND is_closed = True)"
 
-        result = self.session.execute(text(query), {'lid': LID})
+        result = self.session.execute(text(query), {'lid': int(LID)})
+        return result.scalar()
+
+    def getMaxBidAmount(self,LID):
+        query = f"SELECT max(amount) FROM bid WHERE lid = :lid GROUP BY lid"
+
+        result = self.session.execute(text(query),{"lid":int(LID)})
         return result.scalar()
 
 
@@ -126,7 +133,7 @@ class DatabaseManager:
         insepctor = inspect(self.engine)
 
         if table_name in ["meta","bid","spec","auction"]:
-            return insepctor.get_pk_constraint(table_name)[0]["column_names"]
+            return insepctor.get_pk_constraint(table_name)["constrained_columns"]
 
         if table_name in ["shipping","image"]:
             return insepctor.get_unique_constraints(table_name)[0]["column_names"]
@@ -134,19 +141,64 @@ class DatabaseManager:
         if table_name in ["auction_history","favorite_history"]:
             return []
 
-    def insertRecordDataframe(self,DF,table_name):
-        unique_constraints = self.getRecordConstraints(table_name)
-        valid_dataframe = self.validateRecordDataframe(DF,table_name,unique_constraints)
 
-        result = self.insert(table_name,valid_dataframe)
-        #TODO: Add a check for bid
+
+    def insertRecordDataframe(self, DF, table_name):
+        unique_constraints = self.getRecordConstraints(table_name)
+        valid_dataframe = self.validateRecordDataframe(DF, table_name, unique_constraints)
+
+        result = self.insert(table_name, valid_dataframe)
+
+        if table_name == "bid":
+            LID = int(DF["lid"][0])
+            current_max_bid_amount = self.getMaxBidAmount(LID)
+            new_max_bid_row = DF[DF["amount"] == current_max_bid_amount]
+
+            # If we do not already have a row with is final bid true, but the latest bid is the final bid, we need to update it
+            if not self.hasFinalBid(LID) and new_max_bid_row["amount"].iloc[0] == current_max_bid_amount and \
+                    new_max_bid_row["is_final_bid"].iloc[0]:
+                # Define the table metadata
+                # Reflect the table
+                metadata = MetaData()
+                table = Table(table_name, metadata, autoload_with=self.engine)
+
+                # Create the delete statement
+                delete_stmt = (
+                    delete(table).
+                    where(table.c.lid == LID).
+                    where(table.c.amount == current_max_bid_amount).
+                    where(table.c.is_final_bid != True)
+                )
+
+                # Execute the delete statement
+                with self.engine.connect() as connection:
+                    connection.execute(delete_stmt)
+                    connection.commit()
+
+                # Prepare the new row data
+                new_row_data = new_max_bid_row.iloc[0].to_dict()
+
+                # Create the insert statement
+                insert_stmt = insert(table).values(new_row_data)
+
+                # Execute the insert statement
+                with self.engine.connect() as connection:
+                    connection.execute(insert_stmt)
+                    connection.commit()
+
+                result[0] = pd.concat([result[0], new_max_bid_row])
+
+
+        # Assuming you have a method to get the metadata
+        # Make sure to replace `self.metadata` and `self.engine` with the actual SQLAlchemy metadata and engine objects in your class
+
 
         return result
 
     #DO NOT USE - IT IS TOO MESSY
     def automatic_validate_dataframe(self, df: pd.DataFrame, table_name: str) -> pd.DataFrame:
         # Reflect the table from the database
-        metadata = MetaData(bind=self.engine)
+        metadata = MetaData()
         table = Table(table_name, metadata, autoload_with=self.engine)
         inspector = inspect(self.engine)
         unique_constraints = inspector.get_unique_constraints(table_name)
