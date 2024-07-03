@@ -1,6 +1,6 @@
 import Browser
 from utility.webscrapingUtil import maxIntElements,getLIDFromURL
-
+import numpy as np
 
 class MagazineOverview:
 
@@ -14,12 +14,14 @@ class MagazineOverview:
 
         self.currentPage = 0
         self.scrapedLids = dict()
+    def getDelayTime(self):
+        return np.random.uniform(0,self.delayTimeS)
 
     def get_soup(self,pageNr):
         if (pageNr is None):
-            return Browser.Browser.load_bs4(f"{Browser.CategoryOverview.getCategoryBaseURL()}{self.category}",delayTimeSeconds= self.delayTimeS)
+            return Browser.Browser.load_bs4(f"{Browser.CategoryOverview.getCategoryBaseURL()}{self.category}",delayTimeSeconds= self.getDelayTime())
         else:
-            return Browser.Browser.load_bs4(f"{Browser.CategoryOverview.getCategoryBaseURL()}{self.category}?page={pageNr}", delayTimeSeconds= self.delayTimeS)
+            return Browser.Browser.load_bs4(f"{Browser.CategoryOverview.getCategoryBaseURL()}{self.category}?page={pageNr}", delayTimeSeconds= self.getDelayTime())
 
     def set_active_nr_pages(self):
         soup = self.get_soup(None)

@@ -1,9 +1,24 @@
-from datetime import datetime, timezone
+from datetime import datetime, timezone,date
 import os
 import csv
+import json
+
+
 
 def getTimeStamp():
     return datetime.now(timezone.utc)
+
+def dateTimeJsonDumps(obj):
+    """JSON serializer for objects not serializable by default json code"""
+
+    if isinstance(obj, (datetime, date)):
+        return obj.isoformat()
+    raise TypeError ("Type %s not serializable" % type(obj))
+
+
+def serializeWithDates(data):
+    """Serialize a dictionary containing date and datetime objects to a JSON string"""
+    return json.dumps(data, default=dateTimeJsonDumps)
 
 # Function to generate the filename based on the scraping start timestamp
 def generate_filename(scraping_start_timestamp):

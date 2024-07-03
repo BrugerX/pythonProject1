@@ -5,6 +5,9 @@ import utility.LoggingUtility as lut
 import utility.webscrapingUtil as wut
 import LotData.LotDataSettings as lds
 import database.DatabaseManager as dbm
+import json
+
+
 
 """
 
@@ -168,6 +171,9 @@ class LotData:
         record = record_class(self.download_manager)
         return record.getRecordForDatabaseCopy()
 
+    def getLID(self):
+        return self.download_manager.getLID()
+
     def __getitem__(self, item):
         return self.getDataframe(item)
 
@@ -185,12 +191,18 @@ class LotData:
 """
 class RunnableInsertion(LotData):
 
-    def __init__(self, session,engine, meta_data, scheduling_factors, check_scheduling_factors=False):
+    def __init__(self, session,engine, meta_data, scheduling_factors = None, check_scheduling_factors=False):
         super().__init__(meta_data)
         self.db_manager = dbm.DatabaseManager(session,engine)
+
         self.sched_factors = scheduling_factors
 
-        self.initializeNotInsertedTables()
+        if(scheduling_factors is None):
+            self.sched_factors = dict()
+            self.initializeNotInsertedTables()
+            self.sched_factors["lid"] = self.getLID()
+            self.sched_factors["scraped_timestamp"] = self.download_manager.getData("meta_data").getDownloadedTimestamp()
+
 
         if check_scheduling_factors:
             self.queryUpdateSchedulingFactors()
@@ -199,9 +211,8 @@ class RunnableInsertion(LotData):
         not_inserted_tables = self.getNotInsertedTables()
         return (len(not_inserted_tables) == 0)
     def initializeNotInsertedTables(self):
-        if(self.isNotInsertedTablesEmpty()):
-            self.sched_factors["not_inserted_tables"] = lds.getAllRecordTables()
-
+        all_record_tables = lds.getAllRecordTables()
+        self.sched_factors["not_inserted_tables"] = all_record_tables
 
     def getNotInsertedTables(self):
         return self.sched_factors["not_inserted_tables"]
@@ -227,34 +238,40 @@ class RunnableInsertion(LotData):
         self.sched_factors["not_inserted_tables"] = list(all_tables - inserted_tables)
 
     def localCheckIfExists(self,table):
-        return (table not in self.sched_factors["not_inserted_factors"])
+        return (table not in self.sched_factors["not_inserted_tables"])
+
+    def isResultSuccesful(self,result_insert):
+        return result_insert is not None
 
     def removeFromNotInsert(self,table_name):
-        self.sched_factors["not_inserted_factors"] = [table for table in self.getNotInsertedTables() if table != table_name]
+        old_not_inserted = self.getNotInsertedTables()
+        try:
+            old_not_inserted.remove(table_name)
+        except ValueError as e:
+            self.sched_factors["not_inserted_tables"] = old_not_inserted
 
     def insert(self,record_key):
         table_name = wut.recordIntoTabe(record_key)
-        unique_constraints = self.getRecordClass(record_key).getUniqueConstraints()
         record_df = self.__getitem__(record_key) #Downloads the neccessary data and gets the dataframe
-        (result_insert,error_insert) = self.db_manager.insertRecordDataframe(record_df,table_name,unique_constraints)
+        (result_insert,error_insert) = self.db_manager.insertRecordDataframe(record_df,table_name)
 
 
-        if(result_insert):
+        if(self.isResultSuccesful(result_insert)):
             self.removeFromNotInsert(table_name)
 
             # Keep track of various scheduling factors
             match table_name:
 
                 case "bid":
-                    self.sched_factors["has_final_bid"] = record_df["is_final_bid"].any()
+                    self.sched_factors["has_final_bid"] = bool(record_df["is_final_bid"].any())
 
                 # TODO: Create tests for updating the timestamp. The current update method assumes that the auction and auction_history records retreive data from the same source.
                 case "auction_history":
-                    self.sched_factors["is_closed"] = record_df["is_closed"][0]
-                    self.sched_factors["bidding_close_timestamp"] = record_df["bidding_close_timestamp"]
+                    self.sched_factors["is_closed"] = bool(record_df["is_closed"][0])
+                    self.sched_factors["bidding_close_timestamp"] = record_df["bidding_close_timestamp"][0]
 
                 case "auction":
-                    self.sched_factors["bidding_close_timestamp"] = record_df["bidding_close_timestamp"]
+                    self.sched_factors["bidding_close_timestamp"] = record_df["bidding_close_timestamp"][0]
 
         else:
             return (result_insert,error_insert)
@@ -275,7 +292,7 @@ class RunnableInsertion(LotData):
         self.queryUpdateNotInserted()
 
     def getScheduledFactors(self):
-        return self.sched_factors
+        return lut.serializeWithDates(self.sched_factors)
 
 
 

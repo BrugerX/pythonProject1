@@ -328,3 +328,5 @@ class MetadataExtractor(DownloadedData):
     def getCategoryInt(self):
         return self.category_int
 
+
+

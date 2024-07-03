@@ -1,0 +1,7 @@
+CREATE TABLE processing
+(
+  lid BIGINT PRIMARY KEY,
+  first_added_timestamp TIMESTAMP WITH TIME ZONE NOT NULL,
+  finished_timestamp TIMESTAMP WITH TIME ZONE,
+  FOREIGN KEY (LID) REFERENCES meta (LID) ON DELETE CASCADE
+);

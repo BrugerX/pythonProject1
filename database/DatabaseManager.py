@@ -75,7 +75,7 @@ class DatabaseManager:
             dataframe.to_sql(table, con=self.engine, if_exists='append', index=False)
             return [dataframe,None]
         except Exception as e:
-            return (False,e)
+            return (None,e)
 
     def update(self,table,lid,column,value):
         try:
@@ -87,13 +87,13 @@ class DatabaseManager:
         query = f"SELECT EXISTS (SELECT 1 FROM bid WHERE lid = :lid AND is_final_bid = True)"
 
         result = self.session.execute(text(query), {'lid': int(LID)})
-        return result.scalar()
+        return bool(result.scalar())
 
     def isClosed(self,LID):
         query = f"SELECT EXISTS (SELECT 1 FROM auction_history WHERE lid = :lid AND is_closed = True)"
 
         result = self.session.execute(text(query), {'lid': int(LID)})
-        return result.scalar()
+        return bool(result.scalar())
 
     def getMaxBidAmount(self,LID):
         query = f"SELECT max(amount) FROM bid WHERE lid = :lid GROUP BY lid"
