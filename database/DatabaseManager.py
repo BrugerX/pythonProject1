@@ -8,25 +8,35 @@ from psycopg2 import connect
 from sqlalchemy import select, and_
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy import Table, MetaData, inspect, update,delete, insert
+import psycopg2.extras
+from configparser import ConfigParser
 
 def getPredefinedTableNames():
     return ["meta","auction_history","favorite_history","bid","auction","shipping","image","spec"]
 
 def getSessionEngine():
-    engine = create_engine('postgresql://postgres:secret123@localhost:5432/postgres')
+    engine = create_engine('postgresql://postgres:secret123@localhost:5432/postgres'
+)
     Session = sessionmaker(bind=engine)
     session = Session()
     return (session,engine)
-
 def getPsycopg2Settings():
-    env_conf = Config(RepositoryEnv(environment_information["filepath"]))
-    settings = f"user={env_conf.get(environment_information['database_username'])} password={env_conf.get(environment_information['database_password'])} dbname={env_conf.get(environment_information['database_name'])}"
-    del(env_conf)
-    return settings
 
+    env_conf = ConfigParser()
+    env_conf.read(environment_information["filepath"])
+    settings = {
+        "user": env_conf.get("main_db",environment_information['database_username']),
+        "password": env_conf.get("main_db",environment_information['database_password']),
+        "dbname": env_conf.get("main_db",environment_information['database_name'])
+    }
+    del env_conf
+    return settings
 def getPsycopg2Conn():
     settings = getPsycopg2Settings()
-    return connect(settings)
+    conn = psycopg2.connect(**settings)
+    # Set the JSON serializer to lambda x: x
+    psycopg2.extras.register_default_jsonb(conn, globally=True, loads=lambda x: x)
+    return conn
 
 def createSessionAndEngine(self,env_info = environment_information):
     env_conf = Config(RepositoryEnv(env_info["filepath"]))
@@ -305,7 +315,7 @@ class DatabaseManager:
 """
 
 
-from LotData.DataRow import ALlLotData
+from LotDataPackage.DataRow import ALlLotData
 from database.DatabaseManager import DatabaseManager
 from CW_Scraper import MagazineOverview
 import psycopg2 as pg2

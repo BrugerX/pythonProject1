@@ -1,7 +1,7 @@
 import unittest
-import LotData.ExtractorsAndTables as eta
+import LotDataPackage.ExtractorsAndTables as eta
 import Browser as brwsr
-import LotData.Record as lt
+import LotDataPackage.Record as lt
 import utility.LoggingUtility
 import utility.webscrapingUtil as wut
 import utility.TestUtil as tut

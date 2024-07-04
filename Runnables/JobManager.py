@@ -2,12 +2,13 @@ import pandas as pd
 
 import utility.LoggingUtility as lut
 from CW_Scraper import MagazineOverview
-import LotData.LotData as ld
-from RunningSettings import wanted_categories
-import LotData.ExtractorsAndTables as ent
+import LotDataPackage.LotData as ld
+from Runnables.RunningSettings import wanted_categories
+import LotDataPackage.ExtractorsAndTables as ent
 from utility import webscrapingUtil as wut
 from sqlalchemy import create_engine
 import numpy as np
+import json
 import database.DatabaseManager as dbm
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.sql import text
@@ -18,6 +19,29 @@ import time
 import threading
 import time
 
+class RunnableQueuer:
+
+    def __init__(self,queues):
+        self.Qs = queues
+
+    def insertRunnable(self,runnable,q_name,schedule_at = None,expected_at = None):
+        self.Qs[q_name].put(runnable.getScheduledFactors(),schedule_at=schedule_at,expected_at=expected_at)
+
+    def getRunnable(self,q_name):
+        job = self.Qs[q_name].get()
+        if(job is not None):
+            scheduled_factors = job.data
+            timestamp = lut.parse_timestamp(scheduled_factors["scraped_timestamp"])
+            #Let the ints in this stay as strings, since it might fuck the rest of the code up :(
+            #TODO: Maybe make a sched_factor object that does this conversion stuff automatically...?
+            meta_data = ent.MetadataExtractor(scheduled_factors["lid"],timestamp,scheduled_factors["cat_int"],scheduled_factors["cat_name"])
+            session,engine = dbm.getSessionEngine()
+            return ld.RunnableInsertion(session,engine,meta_data,scheduled_factors)
+        else:
+            raise RuntimeError (f"Tried to get runnable insertiong, but queue {q_name} was empty!")
+
+
+#TODO: Add an object that can track statistics and such of JobManager
 class JobManager:
     def __init__(self, jq, sq, session, engine, idle_time=10):
         self.jq = jq
@@ -33,11 +57,11 @@ class JobManager:
             new_job = self.jq.get()
 
             if new_job is None:
-                print(f"Job manager sleeping for: {self.idle_time} seconds")
+                #print(f"Job manager sleeping for: {self.idle_time} seconds")
                 time.sleep(self.idle_time)
                 continue
 
-            new_job_data = new_job.data
+            new_job_data = json.loads(new_job.data)
 
             match new_job_data["task_type"]:
 
@@ -103,7 +127,7 @@ class JobManager:
                 (mag_overview, page_reached, max_pages) = scraped_tracker[cat_int]
 
                 if (page_reached < max_pages):
-                    print(f"At page: {page_reached} out of {max_pages} pages for category {cat_name}")
+                    #print(f"At page: {page_reached} out of {max_pages} pages for category {cat_name}")
 
                     for LID in mag_overview[page_reached]:
 
@@ -121,24 +145,28 @@ class JobManager:
 
             lut.logExceptionsToCsv(exceptions_log, scraping_start_timestamp, logging_columns,r'C:\Users\DripTooHard\PycharmProjects\pythonProject1\Runnables\LIDLogs')
 
-def run_lid_get():
-    lid_get.main()
-
-if __name__ == "__main__":
+def run_job_manager():
     conn = dbm.getPsycopg2Conn()
     Q = q.PQ(conn)
     jq = Q["job"]
     sq = Q["scheduling"]
-    session,engine = dbm.getSessionEngine()
-    jq.put({"task_type":"get_new_lids","categories_of_interest":{333:"watches"}})
-    lid_get = JobManager(jq, sq, session, engine)
+    session, engine = dbm.getSessionEngine()
+    jb_man = JobManager(jq, sq, session, engine)
+    jb_man.main()
 
+if __name__ == "__main__":
+    # List to keep track of threads and job managers
+    threads = []
+    job_managers = []
 
-    # Create a Thread object with the target function
-    thread = threading.Thread(target=run_lid_get)
+    # Number of threads to run
+    num_threads = 3
 
-    # Start the thread
-    thread.start()
+    for _ in range(num_threads):
+        # Initialize and start a new thread
+        thread = threading.Thread(target=run_job_manager)
+        thread.start()
+        threads.append(thread)
 
     # Keep the main application running until interrupted
     try:
@@ -146,6 +174,13 @@ if __name__ == "__main__":
             time.sleep(1)
     except KeyboardInterrupt:
         print("Shutting down...")
-        lid_get.stop()
-        thread.join()
+
+        # Stop all job managers
+        for job_manager in job_managers:
+            job_manager.stop()
+
+        # Join all threads
+        for thread in threads:
+            thread.join()
+
         print("Application stopped.")

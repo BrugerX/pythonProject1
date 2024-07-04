@@ -8,6 +8,16 @@ import json
 def getTimeStamp():
     return datetime.now(timezone.utc)
 
+
+def parse_timestamp(timestamp_str):
+    # Define the format of the input string
+    timestamp_format = "%Y-%m-%dT%H:%M:%S.%f%z"
+
+    # Parse the string into a datetime object
+    dt_object = datetime.strptime(timestamp_str, timestamp_format)
+
+    return dt_object
+
 def dateTimeJsonDumps(obj):
     """JSON serializer for objects not serializable by default json code"""
 

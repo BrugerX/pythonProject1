@@ -19,7 +19,7 @@ class MagazineOverview:
 
     def get_soup(self,pageNr):
         if (pageNr is None):
-            return Browser.Browser.load_bs4(f"{Browser.CategoryOverview.getCategoryBaseURL()}{self.category}",delayTimeSeconds= self.getDelayTime())
+            return Browser.Browser.load_bs4(f"{Browser.CategoryOverview.getCategoryBaseURL()}{self.category}?sort=bidding_end_desc",delayTimeSeconds= self.getDelayTime())
         else:
             return Browser.Browser.load_bs4(f"{Browser.CategoryOverview.getCategoryBaseURL()}{self.category}?page={pageNr}", delayTimeSeconds= self.getDelayTime())
 

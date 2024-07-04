@@ -1,7 +1,7 @@
 import unittest
 import utility.TestUtil as tut
 import utility.LoggingUtility as lut
-import LotData.ExtractorsAndTables as ent
+import LotDataPackage.ExtractorsAndTables as ent
 import Browser as brwsr
 
 class ClosedDiamondAuction(unittest.TestCase):

@@ -1,6 +1,6 @@
 import unittest
-import LotData.ExtractorsAndTables as EnT
-import LotData.Record as ld
+import LotDataPackage.ExtractorsAndTables as EnT
+import LotDataPackage.Record as ld
 import Browser
 import utility.LoggingUtility as lut
 import utility.TestUtil as tu

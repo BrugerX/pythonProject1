@@ -1,5 +1,5 @@
 import unittest
-import LotData.ExtractorsAndTables as EnT
+import LotDataPackage.ExtractorsAndTables as EnT
 import Browser
 from utility import TestUtil as tu
 

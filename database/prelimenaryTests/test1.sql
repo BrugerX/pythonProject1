@@ -79,6 +79,10 @@ CREATE TABLE bid
     latest_bid_timestamp timestamp with time zone not null,
     FOREIGN KEY (lid) REFERENCES meta (lid) ON DELETE CASCADE
 );
+CREATE INDEX idx_auction_history_lid ON auction_history (lid);
+CREATE INDEX idx_bid_lid ON bid (lid);
+CREATE INDEX idx_img_lid ON image (lid);
+CREATE INDEX idx_fhs_lid ON favorite_history (lid);
 
 CREATE TABLE image
 (

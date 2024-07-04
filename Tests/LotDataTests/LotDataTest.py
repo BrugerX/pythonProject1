@@ -3,9 +3,9 @@ import unittest
 import utility.LogingUtility
 import utility.webscrapingUtil as wut
 import utility.TestUtil as tut
-import LotData.LotDataSettings as lds
-import LotData.LotData as ltdt
-import LotData.ExtractorsAndTables as ent
+import LotDataPackage.LotDataSettings as lds
+import LotDataPackage.LotData as ltdt
+import LotDataPackage.ExtractorsAndTables as ent
 
 class ClosedDiamondAuction(unittest.TestCase):
     closed_LID = tut.getRandomClosedLID()

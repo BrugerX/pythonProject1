@@ -4,7 +4,7 @@ import re
 import utility.webscrapingUtil as wbsu
 from abc import ABC,abstractmethod
 import json
-from LotData.LotDataSettings import ReservePriceEnum
+from LotDataPackage.LotDataSettings import ReservePriceEnum
 class ExtractionException(Exception):
 
     def __init__(self, message, lot_soup):

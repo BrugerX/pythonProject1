@@ -1,5 +1,5 @@
 import unittest
-import LotData.LotData as ld
+import LotDataPackage.LotData as ld
 import utility.webscrapingUtil as wut
 import database.DatabaseManager as dbm
 from sqlalchemy.sql import text

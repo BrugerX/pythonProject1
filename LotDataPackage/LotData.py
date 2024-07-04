@@ -1,9 +1,9 @@
-import LotData.Record as rcrd
+import LotDataPackage.Record as rcrd
 import Browser as brws
-import LotData.ExtractorsAndTables as ent
+import LotDataPackage.ExtractorsAndTables as ent
 import utility.LoggingUtility as lut
 import utility.webscrapingUtil as wut
-import LotData.LotDataSettings as lds
+import LotDataPackage.LotDataSettings as lds
 import database.DatabaseManager as dbm
 import json
 
@@ -201,6 +201,8 @@ class RunnableInsertion(LotData):
             self.sched_factors = dict()
             self.initializeNotInsertedTables()
             self.sched_factors["lid"] = self.getLID()
+            self.sched_factors["cat_int"] = meta_data.getCategoryInt()
+            self.sched_factors["cat_name"] = meta_data.getCategoryName()
             self.sched_factors["scraped_timestamp"] = self.download_manager.getData("meta_data").getDownloadedTimestamp()
 
 
@@ -288,11 +290,13 @@ class RunnableInsertion(LotData):
         LID = self.download_manager.getLID()
         self.sched_factors["is_closed"] = self.db_manager.isClosed(LID)
         self.sched_factors["has_final_bid"] = self.db_manager.hasFinalBid(LID)
-        self.sched_factors["bidding_close_timestamp"] = self.db_manager.getBiddingCloseTimestamp(LID)
+        self.sched_factors["bidding_close_timestamp"] = self.download_manager.getData("latest_bid_data").getTimeToClose()
         self.queryUpdateNotInserted()
 
     def getScheduledFactors(self):
-        return lut.serializeWithDates(self.sched_factors)
+        return self.sched_factors
+
+
 
 
 

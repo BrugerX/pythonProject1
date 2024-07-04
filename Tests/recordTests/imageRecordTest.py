@@ -1,6 +1,6 @@
 import unittest
-import LotData.ExtractorsAndTables as eta
-import LotData.Record as ld
+import LotDataPackage.ExtractorsAndTables as eta
+import LotDataPackage.Record as ld
 import Browser as brwsr
 
 class MyTestCase(unittest.TestCase):
