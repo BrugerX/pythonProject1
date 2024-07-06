@@ -56,6 +56,14 @@ class MyTestCase(unittest.TestCase):
     def test_inserting_duplicate_bids(self):
         pass
 
+    """
+    
+    We test to see whether or not our db_manager is able to validate two DFs
+    Where the URL Is the same, but the lid is different.
+    
+    """
+
+
 
 if __name__ == '__main__':
     unittest.main()

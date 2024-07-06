@@ -6,8 +6,8 @@ import utility.webscrapingUtil as wut
 import LotDataPackage.LotDataSettings as lds
 import database.DatabaseManager as dbm
 import json
-
-
+from copy import copy,deepcopy
+import traceback
 
 """
 
@@ -212,12 +212,16 @@ class RunnableInsertion(LotData):
     def isNotInsertedTablesEmpty(self):
         not_inserted_tables = self.getNotInsertedTables()
         return (len(not_inserted_tables) == 0)
+
     def initializeNotInsertedTables(self):
         all_record_tables = lds.getAllRecordTables()
         self.sched_factors["not_inserted_tables"] = all_record_tables
 
     def getNotInsertedTables(self):
         return self.sched_factors["not_inserted_tables"]
+
+    def getCopyNotInsertedTables(self):
+        return deepcopy(self.getNotInsertedTables())
 
     """
 
@@ -242,8 +246,14 @@ class RunnableInsertion(LotData):
     def localCheckIfExists(self,table):
         return (table not in self.sched_factors["not_inserted_tables"])
 
+    #Method is used in insert to test the validity of the data
     def isResultSuccesful(self,result_insert):
         return result_insert is not None
+
+    #Method is used in insert, to determine whether we should update our presence in the tables.
+    def didWeInsert(self,result_insert):
+        return (len(result_insert) > 0)
+
 
     def removeFromNotInsert(self,table_name):
         old_not_inserted = self.getNotInsertedTables()
@@ -257,8 +267,9 @@ class RunnableInsertion(LotData):
         record_df = self.__getitem__(record_key) #Downloads the neccessary data and gets the dataframe
         (result_insert,error_insert) = self.db_manager.insertRecordDataframe(record_df,table_name)
 
-
+        #Our data is valid
         if(self.isResultSuccesful(result_insert)):
+
             self.removeFromNotInsert(table_name)
 
             # Keep track of various scheduling factors
@@ -275,8 +286,8 @@ class RunnableInsertion(LotData):
                 case "auction":
                     self.sched_factors["bidding_close_timestamp"] = record_df["bidding_close_timestamp"][0]
 
-        else:
-            return (result_insert,error_insert)
+
+        return (result_insert,error_insert)
 
 
     def queryAlterLastProcessed(self):
@@ -288,10 +299,14 @@ class RunnableInsertion(LotData):
 
     def queryUpdateSchedulingFactors(self):
         LID = self.download_manager.getLID()
-        self.sched_factors["is_closed"] = self.db_manager.isClosed(LID)
-        self.sched_factors["has_final_bid"] = self.db_manager.hasFinalBid(LID)
-        self.sched_factors["bidding_close_timestamp"] = self.download_manager.getData("latest_bid_data").getTimeToClose()
-        self.queryUpdateNotInserted()
+        try:
+            self.sched_factors["is_closed"] = self.db_manager.isClosed(LID)
+            self.sched_factors["has_final_bid"] = self.db_manager.hasFinalBid(LID)
+            self.sched_factors["bidding_close_timestamp"] = self.download_manager.getData("latest_bid_data").getTimeToClose()
+            self.queryUpdateNotInserted()
+        except Exception as e:
+            print(f"Tried to get the queried scheduling factors for {LID} - but got the following error {e}")
+            print(traceback.format_exc())
 
     def getScheduledFactors(self):
         return self.sched_factors

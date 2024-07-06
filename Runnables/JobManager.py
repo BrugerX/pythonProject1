@@ -3,19 +3,12 @@ import pandas as pd
 import utility.LoggingUtility as lut
 from CW_Scraper import MagazineOverview
 import LotDataPackage.LotData as ld
-from Runnables.RunningSettings import wanted_categories
 import LotDataPackage.ExtractorsAndTables as ent
-from utility import webscrapingUtil as wut
-from sqlalchemy import create_engine
 import numpy as np
 import json
 import database.DatabaseManager as dbm
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy.sql import text
 import pq.python.pq.Queue as q
-import csv
-import os
-import time
+import argparse
 import threading
 import time
 
@@ -27,7 +20,7 @@ class RunnableQueuer:
     def insertRunnable(self,runnable,q_name,schedule_at = None,expected_at = None):
         self.Qs[q_name].put(runnable.getScheduledFactors(),schedule_at=schedule_at,expected_at=expected_at)
 
-    def getRunnable(self,q_name):
+    def getRunnable(self,q_name,check_scheduling_factors=False):
         job = self.Qs[q_name].get()
         if(job is not None):
             scheduled_factors = job.data
@@ -36,9 +29,47 @@ class RunnableQueuer:
             #TODO: Maybe make a sched_factor object that does this conversion stuff automatically...?
             meta_data = ent.MetadataExtractor(scheduled_factors["lid"],timestamp,scheduled_factors["cat_int"],scheduled_factors["cat_name"])
             session,engine = dbm.getSessionEngine()
-            return ld.RunnableInsertion(session,engine,meta_data,scheduled_factors)
+            return ld.RunnableInsertion(session,engine,meta_data,scheduled_factors,check_scheduling_factors=check_scheduling_factors)
         else:
             raise RuntimeError (f"Tried to get runnable insertiong, but queue {q_name} was empty!")
+
+class WeightedInserter(RunnableQueuer):
+
+    def __init__(self, queues):
+        super().__init__(queues)
+
+    def insertRunnable(self,runnable,q_name,schedule_at = None,expected_at = None):
+        self.Qs[q_name].put(runnable.getScheduledFactors(), schedule_at=schedule_at, expected_at=expected_at)
+
+    def processRunnable(self,runnable: ld.RunnableInsertion,q_name):
+        #First we get the latest times for closing and favorite count
+        for record_key in ["auction_history_record","favorite_history_record"]:
+            runnable.insert(record_key)
+
+        not_inserted = runnable.getCopyNotInsertedTables()
+
+        #If we get auction_history we also get latest_bid, which will make it faster to insert the two records below
+        if("spec" in not_inserted or "auction" in not_inserted):
+            runnable.insert("spec_record")
+            runnable.insert("auction_record")
+
+        #We now check to see if the auction has finished
+        sched_factors = runnable.getScheduledFactors()
+        if(sched_factors["is_closed"]):
+
+            for record_key in ["shipping_record", "image_record", "bid_record"]:
+
+                try:
+                    runnable.insert(record_key)
+                #This just means, that there were no bids to the auction
+                except KeyError as e:
+                    pass
+
+        #The auction has to be closed; But sometimes the auction will close without any bids.
+        if(sched_factors["is_closed"] and (sched_factors["has_final_bid"] or runnable.getNotInsertedTables() == ["bid"])):
+            return True
+        else:
+            self.insertRunnable(runnable,"scheduling",expected_at="1h")
 
 
 #TODO: Add an object that can track statistics and such of JobManager
@@ -159,8 +190,18 @@ if __name__ == "__main__":
     threads = []
     job_managers = []
 
+    parser = argparse.ArgumentParser(description="Run job managers in multiple threads.")
+    parser.add_argument(
+        "--num-threads",
+        type=int,
+        default=3,
+        help="Number of threads to run (default: 3)"
+    )
+
+    args = parser.parse_args()
+
     # Number of threads to run
-    num_threads = 3
+    num_threads = args.num_threads
 
     for _ in range(num_threads):
         # Initialize and start a new thread

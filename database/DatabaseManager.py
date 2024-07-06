@@ -1,7 +1,7 @@
 from decouple import Config, RepositoryEnv
 import pandas as pd
 from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import sessionmaker,scoped_session
 from sqlalchemy.sql import text
 from database.EnvSettings import environment_information
 from psycopg2 import connect
@@ -14,12 +14,18 @@ from configparser import ConfigParser
 def getPredefinedTableNames():
     return ["meta","auction_history","favorite_history","bid","auction","shipping","image","spec"]
 
+def getEngine():
+    env_info = environment_information
+    env_conf = Config(RepositoryEnv(env_info["filepath"]))
+    engine = create_engine(f'postgresql://{env_conf.get(env_info["database_username"])}:{env_conf.get(env_info["database_password"])}@localhost:5432/{env_conf.get(env_info["database_name"])}')
+    del(env_conf)
+    return engine
+
+global_engine = getEngine()
+Session = scoped_session(sessionmaker(bind=global_engine))
 def getSessionEngine():
-    engine = create_engine('postgresql://postgres:secret123@localhost:5432/postgres'
-)
-    Session = sessionmaker(bind=engine)
     session = Session()
-    return (session,engine)
+    return (session,global_engine)
 def getPsycopg2Settings():
 
     env_conf = ConfigParser()
@@ -38,13 +44,7 @@ def getPsycopg2Conn():
     psycopg2.extras.register_default_jsonb(conn, globally=True, loads=lambda x: x)
     return conn
 
-def createSessionAndEngine(self,env_info = environment_information):
-    env_conf = Config(RepositoryEnv(env_info["filepath"]))
-    engine = create_engine(f'postgresql://{env_conf.get(env_info["database_username"])}:{env_conf.get(env_info["database_password"])}@localhost:5432/{env_conf.get(env_info["database_name"])}')
-    del(env_conf)
-    Session = sessionmaker(bind=self.engine)
-    session = Session()
-    return (session,engine)
+
 
 class DatabaseManager:
 
@@ -65,7 +65,6 @@ class DatabaseManager:
     """
     def exists(self,LID,table):
         query = f"SELECT EXISTS (SELECT 1 FROM {table} WHERE lid = :lid)"
-
         result = self.session.execute(text(query), {'lid': LID})
         return result.scalar()
 
@@ -76,7 +75,7 @@ class DatabaseManager:
     """
 
     def tablesWithout(self,LID):
-        all_tables = self.getAllTableNames()
+        all_tables = self.getAllTableNames().remove("queue").remove("processing")
         tables_without = [table_name for table_name in all_tables if not self.exists(LID,table_name)]
         return tables_without
 
@@ -95,49 +94,49 @@ class DatabaseManager:
 
     def hasFinalBid(self,LID):
         query = f"SELECT EXISTS (SELECT 1 FROM bid WHERE lid = :lid AND is_final_bid = True)"
-
         result = self.session.execute(text(query), {'lid': int(LID)})
         return bool(result.scalar())
 
     def isClosed(self,LID):
         query = f"SELECT EXISTS (SELECT 1 FROM auction_history WHERE lid = :lid AND is_closed = True)"
-
         result = self.session.execute(text(query), {'lid': int(LID)})
         return bool(result.scalar())
 
     def getMaxBidAmount(self,LID):
         query = f"SELECT max(amount) FROM bid WHERE lid = :lid GROUP BY lid"
-
         result = self.session.execute(text(query),{"lid":int(LID)})
         return result.scalar()
 
 
     def validateRecordDataframe(self, DF, table_name,unique_constraints):
 
-        # Reflect the table
-        metadata = MetaData()
-        table = Table(table_name, metadata, autoload_with=self.engine)
+        if(len(unique_constraints) > 0):
+            # Reflect the table
+            metadata = MetaData()
+            table = Table(table_name, metadata, autoload_with=self.engine)
 
-        # Initialize an empty list to hold rows to insert
-        rows_to_insert = []
+            # Initialize an empty list to hold rows to insert
+            rows_to_insert = []
 
-        # Iterate over each row in the DataFrame
-        for index, row in DF.iterrows():
-            # Build the filter condition for the unique constraints
-            filter_condition = and_(*[table.c[col] == row[col] for col in unique_constraints])
+            # Iterate over each row in the DataFrame
+            for index, row in DF.iterrows():
+                # Build the filter condition for the unique constraints
+                filter_condition = and_(*[table.c[col] == row[col] for col in unique_constraints])
 
-            # Check if the row already exists
-            exists_query = select(table).where(filter_condition)
-            result = self.session.execute(exists_query).fetchone()
+                # Check if the row already exists
+                exists_query = select(table).where(filter_condition)
+                result = self.session.execute(exists_query).fetchone()
 
-            # If the row does not exist, add it to the list to insert
-            if result is None:
-                rows_to_insert.append(row)
+                # If the row does not exist, add it to the list to insert
+                if result is None:
+                    rows_to_insert.append(row)
 
-        # Convert the rows to insert back to a DataFrame
-        rows_to_insert_df = pd.DataFrame(rows_to_insert)
+            # Convert the rows to insert back to a DataFrame
+            rows_to_insert_df = pd.DataFrame(rows_to_insert)
 
-        return rows_to_insert_df
+            return rows_to_insert_df
+        else:
+            return DF
 
     def getRecordConstraints(self,table_name):
         insepctor = inspect(self.engine)
@@ -167,6 +166,7 @@ class DatabaseManager:
             # If we do not already have a row with is final bid true, but the latest bid is the final bid, we need to update it
             if not self.hasFinalBid(LID) and new_max_bid_row["amount"].iloc[0] == current_max_bid_amount and \
                     new_max_bid_row["is_final_bid"].iloc[0]:
+
                 # Define the table metadata
                 # Reflect the table
                 metadata = MetaData()
@@ -197,11 +197,6 @@ class DatabaseManager:
                     connection.commit()
 
                 result[0] = pd.concat([result[0], new_max_bid_row])
-
-
-        # Assuming you have a method to get the metadata
-        # Make sure to replace `self.metadata` and `self.engine` with the actual SQLAlchemy metadata and engine objects in your class
-
 
         return result
 

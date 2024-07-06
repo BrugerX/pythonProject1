@@ -84,6 +84,9 @@ CREATE INDEX idx_bid_lid ON bid (lid);
 CREATE INDEX idx_img_lid ON image (lid);
 CREATE INDEX idx_fhs_lid ON favorite_history (lid);
 
+
+
+
 CREATE TABLE image
 (
     iid serial primary key,
@@ -91,12 +94,13 @@ CREATE TABLE image
     image_idx int not null,
     image_type text not null,
     size text not null CHECK (size IN ('xs', 's', 'm', 'l', 'xl')),
-    url varchar unique not null,
+    url varchar not null,
     orientation text not null,
     width int not null CHECK (width > 0),
     height int not null CHECK (height > 0),
     images_timestamp timestamp with time zone not null,
-    FOREIGN KEY (lid) REFERENCES meta (lid) ON DELETE CASCADE
+    FOREIGN KEY (lid) REFERENCES meta (lid) ON DELETE CASCADE,
+    UNIQUE (lid, url)
 );
 
 CREATE TABLE shipping
@@ -128,10 +132,8 @@ CREATE TABLE shipping
 
 SELECT pg_backend_pid();
 
-ALTER TABLE spec ADD COLUMN description text;
-
 select pid, pg_blocking_pids(pid) as blocked_by, query as blocked_query
 from pg_stat_activity
 where pg_blocking_pids(pid)::text != '{}';
 
-VACUUM (VERBOSE, ANALYZE) spec;
+VACUUM (VERBOSE, ANALYZE) image;
