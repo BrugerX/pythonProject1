@@ -5,8 +5,30 @@ import json
 
 
 
+
 def getTimeStamp():
     return datetime.now(timezone.utc)
+
+
+def save_message(message, folder_path, title):
+    # Ensure the folder exists
+    os.makedirs(folder_path, exist_ok=True)
+
+    # Get the current timestamp
+    timestamp = getTimeStamp().strftime("%d-%m-%Y_%H-%M-%S")
+
+    # Create the filename with title and timestamp
+    filename = f"{title}_{timestamp}.txt"
+
+    # Create the full path
+    full_path = os.path.join(folder_path, filename)
+
+    # Write the message to the file
+    with open(full_path, 'w') as file:
+        file.write(message)
+
+    print(f"Message saved to {full_path}")
+
 
 
 def parse_timestamp(timestamp_str):

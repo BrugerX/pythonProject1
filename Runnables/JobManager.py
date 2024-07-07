@@ -37,8 +37,16 @@ class RunnableQueuer:
 
 class WeightedInserter(RunnableQueuer):
 
-    def __init__(self, queues):
+    def __init__(self, queues, v = 0 ,idle_time=10):
         super().__init__(queues)
+        self.idle_time = idle_time
+        self.verbosity = v
+        self.stop_event = threading.Event()
+
+    def print(self, text):
+        if self.verbosity > 0:
+            print(text)
+
 
     def insertRunnable(self,runnable,q_name,schedule_at = None,expected_at = None):
         self.Qs[q_name].put(runnable.getScheduledFactors(), schedule_at=schedule_at, expected_at=expected_at)
@@ -99,6 +107,20 @@ class WeightedInserter(RunnableQueuer):
             return current_timestamp + timedelta(hours=2)
         else:
             return current_timestamp + timedelta(hours=6)
+
+    def main(self,main_q_name):
+        while not self.stop_event.is_set():
+            runnable = self.getRunnable(main_q_name)
+
+            if runnable is None:
+                self.print(f"{self.__class__} sleeping for: {self.idle_time} seconds")
+                time.sleep(self.idle_time)
+            else:
+                self.print(f"Processing runnable with LID: {runnable.getLID()} not being in {runnable.getCopyNotInsertedTables()}")
+                self.processRunnable(runnable,main_q_name)
+                self.print(f"Finished processing runnable with LID: {runnable.getLID()} should not be in {runnable.getCopyNotInsertedTables()} \t is closed: {runnable.getIsClosed()} \t final bid: {runnable.getHasFinalBid()}")
+    def stop(self):
+        self.stop_event.set()
 
 
 #TODO: Add an object that can track statistics and such of JobManager
@@ -164,7 +186,7 @@ class JobManager:
 
     def scheduleNewLidToSchedulingQ(self, runnable, exception_log):
         scheduling_factors = runnable.getScheduledFactors()
-        self.sq.put(scheduling_factors)
+        self.sq.put(scheduling_factors,expected_at=self.nextProcessingTimestamp(runnable.getExpectedClose()))
 
     def jobGetNewLids(self,categories_of_interest):
         exceptions_log = []
@@ -204,6 +226,26 @@ class JobManager:
                     scraped_tracker[cat_int] = (mag_overview, page_reached + 1, max_pages)
 
             lut.logExceptionsToCsv(exceptions_log, scraping_start_timestamp, logging_columns,r'C:\Users\DripTooHard\PycharmProjects\pythonProject1\Runnables\LIDLogs')
+    def nextProcessingTimestamp(self,expected_close_timestamp, current_timestamp = lut.getTimeStamp().replace(tzinfo=None)):
+
+
+        time_to_close = expected_close_timestamp - current_timestamp
+        if time_to_close <= timedelta(minutes=10):
+            return current_timestamp + timedelta(minutes=1)
+        elif time_to_close <= timedelta(minutes=30):
+            return current_timestamp + timedelta(minutes=2)
+        elif time_to_close <= timedelta(hours=1):
+            return current_timestamp + timedelta(minutes=5)
+        elif time_to_close <= timedelta(hours=2):
+            return current_timestamp + timedelta(minutes=15)
+        elif time_to_close <= timedelta(hours=4):
+            return current_timestamp + timedelta(minutes=30)
+        elif time_to_close <= timedelta(hours=7):
+            return current_timestamp + timedelta(hours=1)
+        elif time_to_close <= timedelta(days=1):
+            return current_timestamp + timedelta(hours=2)
+        else:
+            return current_timestamp + timedelta(hours=6)
 
 def run_job_manager():
     conn = dbm.getPsycopg2Conn()
