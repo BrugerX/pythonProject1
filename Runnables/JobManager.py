@@ -49,14 +49,14 @@ class WeightedInserter(RunnableQueuer):
             for record_key in ["auction_history_record","favorite_history_record"]:
                 runnable.insert(record_key)
 
-        not_inserted = runnable.getCopyNotInsertedTables()
+            not_inserted = runnable.getCopyNotInsertedTables()
 
-        #If we get auction_history we also get latest_bid, which will make it faster to insert the two records below
-        if("spec" in not_inserted or "auction" in not_inserted):
-            runnable.insert("spec_record")
-            runnable.insert("auction_record")
+            #If we get auction_history we also get latest_bid, which will make it faster to insert the two records below
+            if("spec" in not_inserted or "auction" in not_inserted):
+                runnable.insert("spec_record")
+                runnable.insert("auction_record")
 
-        #We now check to see if the auction has finished
+        #We now check to see if the auction has finished - we may only discover that after we scrape the latest auction_history
         no_bids = False
         if(runnable.getIsClosed()):
 
@@ -66,7 +66,10 @@ class WeightedInserter(RunnableQueuer):
                     runnable.insert(record_key)
                 #This just means, that there were no bids to the auction
                 except KeyError as e:
-                    no_bids = True
+                    if(record_key == "bid_record"):
+                        no_bids = True
+                    else:
+                        raise KeyError(f"Failed to process runnable with LID {runnable.getLID()} for record_key {record_key} got error {e} when trying to insert the record")
 
         #The auction has to be closed; But sometimes the auction will close without any bids.
         if(runnable.getIsClosed() and (runnable.getHasFinalBid() or no_bids)):
@@ -74,9 +77,10 @@ class WeightedInserter(RunnableQueuer):
         else:
             self.insertRunnable(runnable,q_name,expected_at=self.nextProcessingTimestamp(runnable.getExpectedClose()))
             return False
-    def nextProcessingTimestamp(self,expected_close_timestamp):
-        #We should be getting our timestamps from the queue in UTC time
-        current_timestamp = lut.getTimeStamp().replace(tzinfo=None)
+
+    # We should be getting our timestamps from the queue in UTC time
+    def nextProcessingTimestamp(self,expected_close_timestamp, current_timestamp = lut.getTimeStamp().replace(tzinfo=None)):
+
 
         time_to_close = expected_close_timestamp - current_timestamp
         if time_to_close <= timedelta(minutes=10):

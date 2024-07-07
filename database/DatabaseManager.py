@@ -68,6 +68,17 @@ class DatabaseManager:
         result = self.session.execute(text(query), {'lid': LID})
         return result.scalar()
 
+    def existsJson(self, json_column_name, LID, table):
+        query = f"""
+        SELECT EXISTS (
+            SELECT 1 
+            FROM {table} 
+            WHERE {json_column_name} ->> 'lid' = :lid
+        )
+        """
+        result = self.session.execute(text(query), {'lid': LID})
+        return result.scalar()
+
     """
 
     Checks whether or not all tables have the specified LID - returns the tables that do not have that lid

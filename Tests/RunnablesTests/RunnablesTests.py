@@ -1,3 +1,4 @@
+import copy
 import datetime
 import unittest
 
@@ -89,6 +90,75 @@ class MyTestCase(unittest.TestCase):
         t_now = lut.getTimeStamp().replace(tzinfo=None)
         t_enq = q_test.get().enqueued_at
         self.assertTrue(t_now - t_enq < datetime.timedelta(minutes=1))
+        q_test.clear()
+
+
+
+"""
+
+We would like to test, that when we process runnables;
+
+    1. Their data is scraped and inserted correctly
+    2. We scrape all neccessary data
+    3. We do it at the right time (get specs and auction together - only get bids at the end etc)
+    4. We re-insert into the queue, only when the lot isn't finished
+    5. We remember to re-insert into the queue, when it is not.
+
+"""
+class ProcessingRunnables(unittest.TestCase):
+    t_start = time.time()
+    conn = dbm.getPsycopg2Conn()
+    Q = q.PQ(conn)
+    q_dict = {"scheduling": Q["scheduling"],"test_processing_runnables":Q["test_processing_runnables"]}
+    rbq = jb.WeightedInserter(q_dict)
+    session,engine = dbm.getSessionEngine()
+    db_manager = dbm.DatabaseManager(session,engine)
+
+    runnable = rbq.getRunnable("scheduling")
+
+    #Put it back babeh
+    rbq.insertRunnable(runnable,"scheduling")
+    LID = runnable.getLID()
+    sched_factors_before = copy.deepcopy(runnable.getScheduledFactors())
+    not_in_list_before = runnable.getCopyNotInsertedTables()
+    rbq.processRunnable(runnable,"test_processing_runnables")
+
+    #The time we approximately used to set the next schedule
+    approximate_time_ended = lut.getTimeStamp()
+    sched_factors_after = copy.deepcopy(runnable.getScheduledFactors())
+    not_in_list_after = runnable.getCopyNotInsertedTables()
+    job = q_dict["test_processing_runnables"].get()
+
+
+    """
+    
+    First we would like to see, whether or not the LID is inserted back into the queue.
+    Or whether it has been correctly removed
+    
+    """
+    def test_is_inserted_back(self):
+
+        """
+
+        If the auction is closed and there either exists a final bid, or the only table it hasn't been inserted to is bid;
+        Then we can remove it. Since it implies, that the auction ended normally or there were no bids on this lot when it ended.
+
+        """
+        if(self.sched_factors_after["is_closed"] and (self.sched_factors_after["has_final_bid"] or (set(self.not_in_list_after) == set(["bid"])))):
+            self.assertIsNone(self.job)
+        else:
+            #Otherwise, the lot should exist in our queue again
+            job_lid = self.job.data["lid"]
+            self.assertEqual(job_lid,self.LID)
+
+    def test_expected_correctly(self):
+        if(self.job is not None):
+            #The expected at, that was inserted
+            inserted_expected_at = self.job.expected_at.replace(tzinfo=None)
+            #There may be some minor differences between the real expected at and the approximate, since there could be a few
+            #seconds of difference between approximate_time_ended and the real.
+            approx_expected_at = self.rbq.nextProcessingTimestamp(self.runnable.getExpectedClose(),self.approximate_time_ended.replace(tzinfo=None)).replace(tzinfo=None)
+            self.assertTrue((approx_expected_at - inserted_expected_at) < datetime.timedelta(minutes=1))
 
 
 
