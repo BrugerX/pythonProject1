@@ -560,6 +560,7 @@ class ALlLotData(LotData):
         if(self.isClosed is None):
             raise RuntimeError("Tried getting lot soup without first determining if it is closed")
 
+        #We make a first guess
         if(self.isClosed):
             soup = SeleniumBrowser.getClosedAuctionSoup(self.LID)
         else:

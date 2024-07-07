@@ -1,3 +1,5 @@
+import datetime
+
 import LotDataPackage.Record as rcrd
 import Browser as brws
 import LotDataPackage.ExtractorsAndTables as ent
@@ -7,6 +9,7 @@ import LotDataPackage.LotDataSettings as lds
 import database.DatabaseManager as dbm
 import json
 from copy import copy,deepcopy
+from collections import defaultdict
 import traceback
 
 """
@@ -50,10 +53,7 @@ class DownloadManager:
         isClosed = self.isClosed()
         LID = self.getLID()
 
-        if (isClosed):
-            soup = brws.SeleniumBrowser.getClosedAuctionSoup(LID)
-        else:
-            soup = brws.SeleniumBrowser.getActiveAuctionSoup(LID)
+        soup = brws.SeleniumBrowser.getAuctionSoup(LID,isClosed)
 
         soup_timestamp = lut.getTimeStamp()
 
@@ -198,7 +198,7 @@ class RunnableInsertion(LotData):
         self.sched_factors = scheduling_factors
 
         if(scheduling_factors is None):
-            self.sched_factors = dict()
+            self.sched_factors = defaultdict(lambda x: None)
             self.initializeNotInsertedTables()
             self.sched_factors["lid"] = self.getLID()
             self.sched_factors["cat_int"] = meta_data.getCategoryInt()
@@ -209,6 +209,7 @@ class RunnableInsertion(LotData):
         if check_scheduling_factors:
             self.queryUpdateSchedulingFactors()
 
+    #Checks to see if its not_inserted tables are empty
     def isNotInsertedTablesEmpty(self):
         not_inserted_tables = self.getNotInsertedTables()
         return (len(not_inserted_tables) == 0)
@@ -269,7 +270,6 @@ class RunnableInsertion(LotData):
 
         #Our data is valid
         if(self.isResultSuccesful(result_insert)):
-
             self.removeFromNotInsert(table_name)
 
             # Keep track of various scheduling factors
@@ -296,17 +296,56 @@ class RunnableInsertion(LotData):
 
         return self.db_manager.update("meta",self.download_manager.getLID(),"last_processed_timestamp",lut.getTimeStamp())
 
+    def queryUpdateExpectedClose(self):
+        self.sched_factors["bidding_close_timestamp"] = wut.turnStringToTimestamp(self.download_manager.getData(
+            "latest_bid_data").getTimeToClose())
+
+    def queryUpdateIsClosed(self):
+        LID = self.download_manager.getLID()
+        self.sched_factors["is_closed"] = self.db_manager.isClosed(LID)
+
+    def queryUpdateHasFinalBid(self):
+        LID = self.download_manager.getLID()
+        self.sched_factors["has_final_bid"] = self.db_manager.hasFinalBid(LID)
 
     def queryUpdateSchedulingFactors(self):
         LID = self.download_manager.getLID()
         try:
-            self.sched_factors["is_closed"] = self.db_manager.isClosed(LID)
-            self.sched_factors["has_final_bid"] = self.db_manager.hasFinalBid(LID)
-            self.sched_factors["bidding_close_timestamp"] = self.download_manager.getData("latest_bid_data").getTimeToClose()
+            self.queryUpdateHasFinalBid()
+            self.queryUpdateIsClosed()
+            self.queryUpdateExpectedClose()
             self.queryUpdateNotInserted()
         except Exception as e:
             print(f"Tried to get the queried scheduling factors for {LID} - but got the following error {e}")
             print(traceback.format_exc())
+
+    def getExpectedClose(self):
+        if(self.sched_factors.get("bidding_close_timestamp") is None):
+            self.queryUpdateExpectedClose()
+        #TODO: FIX THIS, so we know for sure that whenever we get our expected close it is a timestamp
+        expected_close_timestamp  = self.sched_factors["bidding_close_timestamp"]
+
+        if(isinstance(expected_close_timestamp,str)):
+
+            return wut.turnStringToTimestamp(expected_close_timestamp)
+        elif(isinstance(expected_close_timestamp,datetime.datetime)):
+
+            return expected_close_timestamp
+        else:
+            raise TypeError (f"bidding_close_timestamp is not datetime nor string for LID {self.getLID()} got {expected_close_timestamp} with type {type(expected_close_timestamp)}")
+
+    def getIsClosed(self):
+        if (self.sched_factors.get("is_closed") is None):
+            self.queryUpdateIsClosed()
+
+        return self.sched_factors.get("is_closed")
+
+
+    def getHasFinalBid(self):
+        if(self.sched_factors.get("has_final_bid") is None):
+            self.queryUpdateHasFinalBid()
+
+        return  self.sched_factors.get("has_final_bid")
 
     def getScheduledFactors(self):
         return self.sched_factors

@@ -1,3 +1,5 @@
+from datetime import datetime,timedelta,timezone
+
 import pandas as pd
 
 import utility.LoggingUtility as lut
@@ -24,7 +26,7 @@ class RunnableQueuer:
         job = self.Qs[q_name].get()
         if(job is not None):
             scheduled_factors = job.data
-            timestamp = lut.parse_timestamp(scheduled_factors["scraped_timestamp"])
+            timestamp = scheduled_factors["scraped_timestamp"]
             #Let the ints in this stay as strings, since it might fuck the rest of the code up :(
             #TODO: Maybe make a sched_factor object that does this conversion stuff automatically...?
             meta_data = ent.MetadataExtractor(scheduled_factors["lid"],timestamp,scheduled_factors["cat_int"],scheduled_factors["cat_name"])
@@ -43,8 +45,9 @@ class WeightedInserter(RunnableQueuer):
 
     def processRunnable(self,runnable: ld.RunnableInsertion,q_name):
         #First we get the latest times for closing and favorite count
-        for record_key in ["auction_history_record","favorite_history_record"]:
-            runnable.insert(record_key)
+        if(not ( runnable.getIsClosed() or runnable.queryUpdateHasFinalBid() )):
+            for record_key in ["auction_history_record","favorite_history_record"]:
+                runnable.insert(record_key)
 
         not_inserted = runnable.getCopyNotInsertedTables()
 
@@ -54,8 +57,8 @@ class WeightedInserter(RunnableQueuer):
             runnable.insert("auction_record")
 
         #We now check to see if the auction has finished
-        sched_factors = runnable.getScheduledFactors()
-        if(sched_factors["is_closed"]):
+        no_bids = False
+        if(runnable.getIsClosed()):
 
             for record_key in ["shipping_record", "image_record", "bid_record"]:
 
@@ -63,13 +66,35 @@ class WeightedInserter(RunnableQueuer):
                     runnable.insert(record_key)
                 #This just means, that there were no bids to the auction
                 except KeyError as e:
-                    pass
+                    no_bids = True
 
         #The auction has to be closed; But sometimes the auction will close without any bids.
-        if(sched_factors["is_closed"] and (sched_factors["has_final_bid"] or runnable.getNotInsertedTables() == ["bid"])):
+        if(runnable.getIsClosed() and (runnable.getHasFinalBid() or no_bids)):
             return True
         else:
-            self.insertRunnable(runnable,"scheduling",expected_at="1h")
+            self.insertRunnable(runnable,q_name,expected_at=self.nextProcessingTimestamp(runnable.getExpectedClose()))
+            return False
+    def nextProcessingTimestamp(self,expected_close_timestamp):
+        #We should be getting our timestamps from the queue in UTC time
+        current_timestamp = lut.getTimeStamp().replace(tzinfo=None)
+
+        time_to_close = expected_close_timestamp - current_timestamp
+        if time_to_close <= timedelta(minutes=10):
+            return current_timestamp + timedelta(minutes=1)
+        elif time_to_close <= timedelta(minutes=30):
+            return current_timestamp + timedelta(minutes=2)
+        elif time_to_close <= timedelta(hours=1):
+            return current_timestamp + timedelta(minutes=5)
+        elif time_to_close <= timedelta(hours=2):
+            return current_timestamp + timedelta(minutes=15)
+        elif time_to_close <= timedelta(hours=4):
+            return current_timestamp + timedelta(minutes=30)
+        elif time_to_close <= timedelta(hours=7):
+            return current_timestamp + timedelta(hours=1)
+        elif time_to_close <= timedelta(days=1):
+            return current_timestamp + timedelta(hours=2)
+        else:
+            return current_timestamp + timedelta(hours=6)
 
 
 #TODO: Add an object that can track statistics and such of JobManager

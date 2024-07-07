@@ -135,44 +135,64 @@ class SeleniumBrowser():
         driver = SeleniumBrowser.getEdgedriver()
         driver.get(requestUrl)
 
+
+
+        # Wait and click the cookie button
+        SeleniumBrowser.declinceCookies(driver)
+
         try:
+            view_lot_btn = WebDriverWait(driver, 5).until(
+                EC.presence_of_element_located((By.CLASS_NAME, "lot-closed-banner__view-this-lot"))
+            )
+            driver.execute_script("arguments[0].click();", view_lot_btn)
 
-            # Wait and click the cookie button
-            SeleniumBrowser.declinceCookies(driver)
+        except TimeoutException:
 
-            try:
-                view_lot_btn = WebDriverWait(driver, 5).until(
-                    EC.presence_of_element_located((By.CLASS_NAME, "lot-closed-banner__view-this-lot"))
-                )
-                driver.execute_script("arguments[0].click();", view_lot_btn)
-
-            except TimeoutException:
-
-                # If "View this lot" button does not exist, then find the "Show all info" button
-                show_all_info_btn = WebDriverWait(driver, 5).until(
-                    EC.presence_of_element_located((By.CSS_SELECTOR, "[data-testid='closed-odp-show-all-info']"))
-                )
-                # Use JavaScript to click the "Show all info" button
-                driver.execute_script("arguments[0].click();", show_all_info_btn)
+            # If "View this lot" button does not exist, then find the "Show all info" button
+            show_all_info_btn = WebDriverWait(driver, 5).until(
+                EC.presence_of_element_located((By.CSS_SELECTOR, "[data-testid='closed-odp-show-all-info']"))
+            )
+            # Use JavaScript to click the "Show all info" button
+            driver.execute_script("arguments[0].click();", show_all_info_btn)
 
 
 
-            html = driver.page_source
-            soup = bs4.BeautifulSoup(html,features="lxml")
-            return soup
-
-        except Exception as e:
-            print("Error occurred while getting the closed auctions soup: ", e)
+        html = driver.page_source
+        soup = bs4.BeautifulSoup(html,features="lxml")
+        driver.close()
+        return soup
 
     @staticmethod
     def getActiveAuctionSoup(LID):
+
         requestUrl = SeleniumBrowser.getAuctionURL(LID)
         driver = SeleniumBrowser.getEdgedriver()
         driver.get(requestUrl)
         SeleniumBrowser.declinceCookies(driver)
         WebDriverWait(driver,5)
         soup = bs4.BeautifulSoup(driver.page_source,features="lxml")
+        driver.close()
         return soup
+
+    @staticmethod
+    def getAuctionSoup(LID,isClosed):
+
+        #Our best guess is isClosed, but because of redirecting/reusage of LIDs
+        #We might have that a closed LID points to an active one still
+        if(isClosed):
+            try:
+                return SeleniumBrowser.getClosedAuctionSoup(LID)
+            except Exception as e:
+                print(f"Error occurred while getting the closed auction soup for {LID}: ", e, "\n Will try to get the active soup")
+                return SeleniumBrowser.getActiveAuctionSoup(LID)
+        else:
+            try:
+                return SeleniumBrowser.getActiveAuctionSoup(LID)
+            except Exception as e:
+                print(f"Error occurred while getting the active auction soup for {LID}: ", e,
+                      "\n Will try to get the closed soup")
+                return SeleniumBrowser.getClosedAuctionSoup(LID)
+
 
 
 class CategoryOverview():
