@@ -10,3 +10,5 @@ B) Continuously scrape lots in order to get information that disappears after th
 C) Finalize lots once they're closed and moving them out of the queueing system.
 
  It was only meant for internal use, so understanding the lingo is dependent on having access to the design documents (UML, notes, etc.)
+
+Turns out, that I never merged Runnables with Main; But the scripts are in the former.
