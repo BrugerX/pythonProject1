@@ -9,4 +9,4 @@ A) Get active lots.
 B) Continuously scrape lots in order to get information that disappears after the lot is closed.
 C) Finalize lots once they're closed and moving them out of the queueing system.
 
- 
+ It was only meant for internal use, so understanding the lingo is dependent on having access to the design documents (UML, notes, etc.)
